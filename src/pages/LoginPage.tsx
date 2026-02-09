@@ -11,7 +11,25 @@ export default function Login() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+
+    // Password validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      alert(
+        "Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
+      );
+      return;
+    }
+
     console.log("Login submitted", { email, password });
+    alert("Login successful!"); // just for demo
   };
 
   return (
@@ -38,12 +56,14 @@ export default function Login() {
             ScholarCheck
           </p>
         </div>
-        {/* ===== RIGHT COLUMN - Login Form on plain background ===== */}
+
+        {/* ===== RIGHT COLUMN - Login Form ===== */}
         <div className="flex flex-col justify-start flex-1 p-20">
           <h2 className="text-[25px] font-bold text-black mb-2">Log In</h2>
           <p className="mb-6 text-base font-normal text-black">
             Please enter your credentials to access your account.
           </p>
+
           <form onSubmit={handleSubmit} className="flex flex-col max-w-md gap-4">
             {/* Email Input */}
             <div className="flex flex-col gap-1">
@@ -83,18 +103,18 @@ export default function Login() {
                   placeholder="Enter your password"
                   className="w-full px-4 py-3 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                 />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                <img
-                  src={showPassword ? EyeOffIcon : EyeIcon}
-                  alt={showPassword ? "Hide password" : "Show password"}
-                  className="object-contain w-full h-full"
-                />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  <img
+                    src={showPassword ? EyeOffIcon : EyeIcon}
+                    alt={showPassword ? "Hide password" : "Show password"}
+                    className="object-contain w-full h-full"
+                  />
+                </button>
               </div>
             </div>
 

@@ -5,20 +5,58 @@ import EyeIcon from "../img/Eye.png";
 import EyeOffIcon from "../img/Hide.png";
 
 export default function Signup() {
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otp, setOtp] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // You can also add validation for confirm password here
+
+    // First & Last Name Validation (letters only, min 2 characters)
+    const nameRegex = /^[A-Za-z]{2,}$/;
+    if (!nameRegex.test(firstName)) {
+      alert("First Name must contain at least 2 letters and no numbers/special characters.");
+      return;
+    }
+    if (!nameRegex.test(lastName)) {
+      alert("Last Name must contain at least 2 letters and no numbers/special characters.");
+      return;
+    }
+
+    // Password Validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      alert(
+        "Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
+      );
+      return;
+    }
+
+    // Confirm Password
     if (password !== confirmPassword) {
       alert("Passwords do not match!");
       return;
     }
-    console.log("Signup submitted", { fullName, email, password });
+
+    console.log("Sending OTP to:", email);
+    setShowOtpModal(true);
+  };
+
+  const handleProceed = () => {
+    console.log("OTP Entered:", otp);
+    setShowOtpModal(false);
+    alert("Account verified successfully!");
+    // Here you would continue to save user data in backend
+  };
+
+  const handleResend = () => {
+    console.log("Resend OTP to:", email);
+    alert("OTP has been resent!");
   };
 
   return (
@@ -46,7 +84,7 @@ export default function Signup() {
           </p>
         </div>
 
-        {/* ===== RIGHT COLUMN - Signup Form on plain background ===== */}
+        {/* ===== RIGHT COLUMN - Signup Form ===== */}
         <div className="flex flex-col justify-start flex-1 p-20">
           <h2 className="text-[25px] font-bold text-black mb-2">Sign Up</h2>
           <p className="mb-6 text-base font-normal text-black">
@@ -54,23 +92,42 @@ export default function Signup() {
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col max-w-md gap-4">
-            {/* Full Name Input */}
-            <div className="flex flex-col gap-1">
-              <label htmlFor="fullName" className="text-sm font-medium text-black">
-                Full Name
-              </label>
+            {/* First & Last Name Side by Side */}
+            <div className="flex flex-col gap-4 md:flex-row">
+              {/* First Name */}
+              <div className="flex flex-col flex-1 gap-1">
+                <label htmlFor="firstName" className="text-sm font-medium text-black">
+                  First Name
+                </label>
                 <input
-                id="fullName"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Enter your full name"
-                className="w-full px-4 py-2 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
-                required
+                  id="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Enter your first name"
+                  className="w-full px-4 py-2 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                  required
                 />
+              </div>
+
+              {/* Last Name */}
+              <div className="flex flex-col flex-1 gap-1">
+                <label htmlFor="lastName" className="text-sm font-medium text-black">
+                  Last Name
+                </label>
+                <input
+                  id="lastName"
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Enter your last name"
+                  className="w-full px-4 py-2 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                  required
+                />
+              </div>
             </div>
 
-            {/* Email Input */}
+            {/* Email */}
             <div className="flex flex-col gap-1">
               <label htmlFor="email" className="text-sm font-medium text-black">
                 Email
@@ -86,7 +143,7 @@ export default function Signup() {
               />
             </div>
 
-            {/* Password Input */}
+            {/* Password */}
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between mb-1">
                 <label htmlFor="password" className="text-sm font-medium text-black">
@@ -118,7 +175,7 @@ export default function Signup() {
               </div>
             </div>
 
-            {/* Confirm Password Input */}
+            {/* Confirm Password */}
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between mb-1">
                 <label htmlFor="confirmPassword" className="text-sm font-medium text-black">
@@ -168,6 +225,52 @@ export default function Signup() {
           </p>
         </div>
       </main>
+
+      {/* ===== OTP Modal ===== */}
+      {showOtpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md p-8 bg-white shadow-lg rounded-2xl">
+            <h3 className="mb-2 text-xl font-bold text-black">Email Verification</h3>
+            <p className="mb-4 text-sm text-black">
+              A One-Time Password (OTP) has been sent to <strong>{email}</strong>.
+              Please enter the 6-digit code below to verify your account.
+            </p>
+
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              placeholder="Enter OTP"
+              className="w-full px-4 py-2 mb-4 border rounded-lg border-black/10 focus:outline-none focus:ring-2 focus:ring-green-800"
+            />
+
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleResend}
+                className="text-sm text-green-800 hover:underline"
+              >
+                Resend OTP
+              </button>
+
+              <button
+                type="button"
+                disabled={otp.length !== 6}
+                onClick={handleProceed}
+                className={`px-4 py-2 text-white rounded-lg ${
+                  otp.length === 6
+                    ? "bg-green-800 hover:bg-green-900"
+                    : "bg-gray-400 cursor-not-allowed"
+                }`}
+              >
+                Proceed
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===== FOOTER ===== */}
       <footer className="py-6 text-center bg-white border-t border-gray-200">
