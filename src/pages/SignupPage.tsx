@@ -23,30 +23,44 @@ export default function SignupPage() {
 
   const nameRegex = /^[A-Za-z]+(?:[ '\-][A-Za-z]+)*$/;
 
-  // 8–16 chars, upper, lower, number, special
-  const passwordRegex =
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,16}$/;
-
   const normalizeName = (s: string) => s.trim().replace(/\s+/g, " ");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const fn = normalizeName(firstName);
-    const ln = normalizeName(lastName);
+    const fn = normalizeName(firstName).slice(0, 12);
+    const ln = normalizeName(lastName).slice(0, 12);
+    const trimmedEmail = email.trim();
 
+    // First & Last Name validation
     if (!nameRegex.test(fn) || fn.replace(/[^A-Za-z]/g, "").length < 2) {
-      alert("First Name must contain at least 2 letters and no numbers.");
+      alert("First Name must contain 2–12 letters and no numbers.");
       return;
     }
     if (!nameRegex.test(ln) || ln.replace(/[^A-Za-z]/g, "").length < 2) {
-      alert("Last Name must contain at least 2 letters and no numbers.");
+      alert("Last Name must contain 2–12 letters and no numbers.");
       return;
     }
 
-    if (!passwordRegex.test(password)) {
+    // Email validation
+    if (
+      trimmedEmail.length > 30 ||
+      /\s/.test(trimmedEmail) ||
+      /[A-Z]/.test(trimmedEmail) ||
+      !/^[a-z0-9._%+-]+@[a-z0-9.-]+\.com$/.test(trimmedEmail)
+    ) {
       alert(
-        "Password must be 8–16 characters and include uppercase, lowercase, number, and special character (@$!%*?&)."
+        "Email must be max 30 characters, lowercase only, no spaces, and end with .com"
+      );
+      return;
+    }
+
+    // Password validation: 8-16 chars, must include uppercase, lowercase, number, special char, no spaces
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,16}$/;
+    if (!passwordRegex.test(password) || /\s/.test(password)) {
+      alert(
+        "Password must be 8–16 characters, include uppercase, lowercase, number, special character, and no spaces."
       );
       return;
     }
@@ -58,7 +72,7 @@ export default function SignupPage() {
 
     try {
       setLoadingOtp(true);
-      const res = await requestSignupOtp(email.trim());
+      const res = await requestSignupOtp(trimmedEmail);
 
       if (res.devOtp) setOtp(res.devOtp);
       else setOtp("");
@@ -77,8 +91,8 @@ export default function SignupPage() {
       return;
     }
 
-    const fn = normalizeName(firstName);
-    const ln = normalizeName(lastName);
+    const fn = normalizeName(firstName).slice(0, 12);
+    const ln = normalizeName(lastName).slice(0, 12);
 
     try {
       setLoadingSignup(true);
@@ -118,17 +132,17 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden bg-white">
       {/* HEADER */}
-      <header className="w-full border-b border-gray-300 bg-white">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 py-4">
-          <div className="flex min-w-0 items-center gap-2">
+      <header className="w-full bg-white border-b border-gray-300">
+        <div className="flex items-center justify-between w-full max-w-6xl gap-3 px-4 py-4 mx-auto sm:px-6">
+          <div className="flex items-center min-w-0 gap-2">
             <img
               src={Logo}
               alt="ScholarCheck Logo"
-              className="h-8 w-8 sm:h-10 sm:w-10 object-contain max-w-full"
+              className="object-contain w-8 h-8 max-w-full sm:h-10 sm:w-10"
             />
-            <span className="truncate text-lg sm:text-xl font-semibold text-gray-900">
+            <span className="text-lg font-semibold text-gray-900 truncate sm:text-xl">
               ScholarCheck
             </span>
           </div>
@@ -136,12 +150,14 @@ export default function SignupPage() {
       </header>
 
       {/* MAIN */}
-      <main className="mx-auto flex w-full max-w-6xl flex-col lg:flex-row">
+      <main className="flex flex-col w-full max-w-6xl mx-auto lg:flex-row">
         {/* LEFT (Desktop only) */}
-        <div className="hidden lg:flex lg:w-1/2 bg-green-50 px-10 xl:px-12 py-12">
+        <div className="hidden px-10 py-12 lg:flex lg:w-1/2 bg-green-50 xl:px-12">
           <div className="max-w-md">
             <h2 className="mb-2 text-xl font-bold text-black">Welcome to</h2>
-            <p className="text-4xl font-bold leading-tight text-green-800">ScholarCheck</p>
+            <p className="text-4xl font-bold leading-tight text-green-800">
+              ScholarCheck
+            </p>
             <p className="mt-4 text-sm text-gray-700">
               Create your account to start checking scholarship eligibility.
             </p>
@@ -149,65 +165,70 @@ export default function SignupPage() {
         </div>
 
         {/* RIGHT */}
-        <div className="flex w-full flex-1 items-start justify-center px-4 sm:px-6 py-10 sm:py-12">
+        <div className="flex items-start justify-center flex-1 w-full px-4 py-10 sm:px-6 sm:py-12">
           <div className="w-full max-w-md">
-            <h2 className="text-2xl sm:text-[25px] font-bold text-black mb-2">Sign Up</h2>
-            <p className="mb-6 text-sm sm:text-base font-normal text-black">
+            <h2 className="text-2xl sm:text-[25px] font-bold text-black mb-2">
+              Sign Up
+            </h2>
+            <p className="mb-6 text-sm font-normal text-black sm:text-base">
               Please enter your details to create an account.
             </p>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               {/* Names */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1 min-w-0">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex flex-col min-w-0 gap-1">
                   <label htmlFor="firstName" className="text-sm font-medium text-black">
                     First Name
                   </label>
                   <input
                     id="firstName"
                     type="text"
+                    maxLength={12}
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="First name"
-                    className="w-full max-w-full rounded-lg border border-black/10 px-4 py-2 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                    className="w-full max-w-full px-4 py-2 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                     required
                   />
                 </div>
 
-                <div className="flex flex-col gap-1 min-w-0">
+                <div className="flex flex-col min-w-0 gap-1">
                   <label htmlFor="lastName" className="text-sm font-medium text-black">
                     Last Name
                   </label>
                   <input
                     id="lastName"
                     type="text"
+                    maxLength={12}
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Last name"
-                    className="w-full max-w-full rounded-lg border border-black/10 px-4 py-2 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                    className="w-full max-w-full px-4 py-2 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                     required
                   />
                 </div>
               </div>
 
               {/* Email */}
-              <div className="flex flex-col gap-1 min-w-0">
+              <div className="flex flex-col min-w-0 gap-1">
                 <label htmlFor="email" className="text-sm font-medium text-black">
                   Email
                 </label>
                 <input
                   id="email"
                   type="email"
+                  maxLength={30}
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value.toLowerCase())}
                   placeholder="Enter your email"
-                  className="w-full max-w-full rounded-lg border border-black/10 px-4 py-2 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                  className="w-full max-w-full px-4 py-2 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                   required
                 />
               </div>
 
               {/* Password */}
-              <div className="flex flex-col gap-1 min-w-0">
+              <div className="flex flex-col min-w-0 gap-1">
                 <label htmlFor="password" className="text-sm font-medium text-black">
                   Password
                 </label>
@@ -215,28 +236,29 @@ export default function SignupPage() {
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
+                    maxLength={16}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="w-full max-w-full rounded-lg border border-black/10 px-4 py-2 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                    className="w-full max-w-full px-4 py-2 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 h-6 w-6 -translate-y-1/2"
+                    className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
                   >
                     <img
                       src={showPassword ? EyeOffIcon : EyeIcon}
                       alt="Toggle password"
-                      className="h-full w-full object-contain"
+                      className="object-contain w-full h-full"
                     />
                   </button>
                 </div>
               </div>
 
               {/* Confirm Password */}
-              <div className="flex flex-col gap-1 min-w-0">
+              <div className="flex flex-col min-w-0 gap-1">
                 <label htmlFor="confirmPassword" className="text-sm font-medium text-black">
                   Confirm Password
                 </label>
@@ -244,21 +266,22 @@ export default function SignupPage() {
                   <input
                     id="confirmPassword"
                     type={showPassword ? "text" : "password"}
+                    maxLength={16}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm your password"
-                    className="w-full max-w-full rounded-lg border border-black/10 px-4 py-2 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                    className="w-full max-w-full px-4 py-2 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 h-6 w-6 -translate-y-1/2"
+                    className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
                   >
                     <img
                       src={showPassword ? EyeOffIcon : EyeIcon}
                       alt="Toggle password"
-                      className="h-full w-full object-contain"
+                      className="object-contain w-full h-full"
                     />
                   </button>
                 </div>
@@ -278,7 +301,7 @@ export default function SignupPage() {
               </button>
             </form>
 
-            <p className="mt-6 text-center text-black text-sm sm:text-base">
+            <p className="mt-6 text-sm text-center text-black sm:text-base">
               Already have an account?{" "}
               <Link to="/login" className="text-green-800 hover:underline">
                 Log In
@@ -288,51 +311,74 @@ export default function SignupPage() {
         </div>
       </main>
 
-      {/* OTP MODAL */}
+      {/* ===== OTP Modal ===== */}
       {showOtpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 overflow-x-hidden">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 sm:p-8 shadow-lg">
-            <h3 className="mb-2 text-lg sm:text-xl font-bold text-black">
-              Email Verification
-            </h3>
-            <p className="mb-4 text-sm text-black break-words">
-              A One-Time Password (OTP) has been sent to <strong>{email}</strong>. Please
-              enter the 6-digit code below to verify your account.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md p-8 bg-white shadow-lg rounded-2xl">
+            <h3 className="mb-2 text-xl font-bold text-black">Email Verification</h3>
+            <p className="mb-4 text-sm text-black">
+              A One-Time Password (OTP) has been sent to <strong>{email}</strong>.
+              Please enter the 6-digit code below to verify your account.
             </p>
 
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="Enter OTP"
-              className="w-full max-w-full mb-4 rounded-lg border border-black/10 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-800"
-            />
+            {/* OTP Input */}
+            <div className="flex justify-between gap-2 mb-4">
+              {[...Array(6)].map((_, index) => (
+                <input
+                  key={index}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={otp[index] || ""}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/, "");
+                    if (!val) return;
 
-            <div className="flex items-center justify-between gap-3">
+                    const newOtp = otp.split("");
+                    newOtp[index] = val;
+                    setOtp(newOtp.join(""));
+
+                    const nextInput = document.getElementById(`otp-${index + 1}`);
+                    if (nextInput) (nextInput as HTMLInputElement).focus();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Backspace") {
+                      const newOtp = otp.split("");
+                      newOtp[index] = "";
+                      setOtp(newOtp.join(""));
+
+                      const prevInput = document.getElementById(`otp-${index - 1}`);
+                      if (prevInput) (prevInput as HTMLInputElement).focus();
+                    }
+                  }}
+                  id={`otp-${index}`}
+                  title={`OTP digit ${index + 1}`}
+                  placeholder="0"
+                  className="w-12 h-12 text-xl text-center border rounded-lg border-black/10 focus:outline-none focus:ring-2 focus:ring-green-800"
+                />
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between">
               <button
                 type="button"
                 onClick={handleResend}
-                disabled={loadingOtp}
-                className={`text-sm text-green-800 hover:underline ${
-                  loadingOtp ? "opacity-60 cursor-not-allowed" : ""
-                }`}
+                className="text-sm text-green-800 hover:underline"
               >
-                {loadingOtp ? "Resending..." : "Resend OTP"}
+                Resend OTP
               </button>
 
               <button
                 type="button"
-                disabled={!/^\d{6}$/.test(otp) || loadingSignup}
+                disabled={otp.length !== 6}
                 onClick={handleProceed}
-                className={`rounded-lg px-4 py-2 text-white ${
-                  /^\d{6}$/.test(otp) && !loadingSignup
+                className={`px-4 py-2 text-white rounded-lg ${
+                  otp.length === 6
                     ? "bg-green-800 hover:bg-green-900"
                     : "bg-gray-400 cursor-not-allowed"
                 }`}
               >
-                {loadingSignup ? "Creating..." : "Proceed"}
+                Proceed
               </button>
             </div>
           </div>
@@ -340,8 +386,8 @@ export default function SignupPage() {
       )}
 
       {/* FOOTER */}
-      <footer className="w-full border-t border-gray-200 bg-white py-6 text-center">
-        <p className="px-4 text-xs sm:text-sm text-black">
+      <footer className="flex items-center justify-center w-full h-20 text-center bg-white border-t border-gray-200">
+        <p className="px-4 text-xs text-black sm:text-sm">
           © 2026 ScholarCheck. All rights reserved.
         </p>
       </footer>
