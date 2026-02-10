@@ -51,7 +51,8 @@ export default function LoginPage() {
       localStorage.setItem("scholarcheck_user", JSON.stringify(res.user));
 
       alert(res.message);
-      navigate("/");
+
+      navigate("/home", { replace: true });
     } catch (err: any) {
       alert(err?.message || "Login failed. Check email/password.");
     } finally {

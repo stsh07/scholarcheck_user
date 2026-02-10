@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
 import EyeIcon from "../img/Eye.png";
@@ -11,6 +11,7 @@ export default function SignupPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -25,6 +26,17 @@ export default function SignupPage() {
 
   const normalizeName = (s: string) => s.trim().replace(/\s+/g, " ");
 
+  // ✅ Helper logger (clean + consistent)
+  const LOG_PREFIX = "[SIGNUP]";
+  const log = (...args: any[]) => console.log(LOG_PREFIX, ...args);
+  const warn = (...args: any[]) => console.warn(LOG_PREFIX, ...args);
+  const errLog = (...args: any[]) => console.error(LOG_PREFIX, ...args);
+
+  // Useful to know when modal opens/closes
+  useEffect(() => {
+    log("OTP Modal:", showOtpModal ? "OPEN" : "CLOSED");
+  }, [showOtpModal]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -32,103 +44,188 @@ export default function SignupPage() {
     const ln = normalizeName(lastName).slice(0, 12);
     const trimmedEmail = email.trim();
 
-    // First & Last Name validation
+    // ✅ DO NOT LOG PASSWORDS
+    log("handleSubmit start", {
+      firstName: fn,
+      lastName: ln,
+      email: trimmedEmail,
+      passwordLength: password.length,
+      confirmPasswordLength: confirmPassword.length,
+    });
+
+    // ✅ First & Last Name validation
     if (!nameRegex.test(fn) || fn.replace(/[^A-Za-z]/g, "").length < 2) {
+      warn("First name validation failed", { fn });
       alert("First Name must contain 2–12 letters and no numbers.");
       return;
     }
     if (!nameRegex.test(ln) || ln.replace(/[^A-Za-z]/g, "").length < 2) {
+      warn("Last name validation failed", { ln });
       alert("Last Name must contain 2–12 letters and no numbers.");
       return;
     }
 
-    // Email validation
-    if (
-      trimmedEmail.length > 30 ||
-      /\s/.test(trimmedEmail) ||
-      /[A-Z]/.test(trimmedEmail) ||
-      !/^[a-z0-9._%+-]+@[a-z0-9.-]+\.com$/.test(trimmedEmail)
-    ) {
-      alert(
-        "Email must be max 30 characters, lowercase only, no spaces, and end with .com"
-      );
+    // ✅ Email validation
+    const emailOk =
+      trimmedEmail.length <= 30 &&
+      !/\s/.test(trimmedEmail) &&
+      !/[A-Z]/.test(trimmedEmail) &&
+      /^[a-z0-9._%+-]+@[a-z0-9.-]+\.com$/.test(trimmedEmail);
+
+    if (!emailOk) {
+      warn("Email validation failed", { trimmedEmail });
+      alert("Email must be max 30 characters, lowercase only, no spaces, and end with .com");
       return;
     }
 
-    // Password validation: 8-16 chars, must include uppercase, lowercase, number, special char, no spaces
+    // ✅ Password validation: 8-16 chars, must include uppercase, lowercase, number, special char, no spaces
     const passwordRegex =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,16}$/;
+
     if (!passwordRegex.test(password) || /\s/.test(password)) {
+      warn("Password validation failed", {
+        passwordLength: password.length,
+        hasSpace: /\s/.test(password),
+      });
       alert(
         "Password must be 8–16 characters, include uppercase, lowercase, number, special character, and no spaces."
       );
       return;
     }
 
+    // ✅ Confirm Password
     if (password !== confirmPassword) {
+      warn("Confirm password mismatch");
       alert("Passwords do not match!");
       return;
     }
 
+    // ✅ Request OTP
     try {
       setLoadingOtp(true);
+      log("Requesting OTP...", { email: trimmedEmail });
+
       const res = await requestSignupOtp(trimmedEmail);
 
-      if (res.devOtp) setOtp(res.devOtp);
-      else setOtp("");
+      log("OTP request success", res);
+
+      if (res.devOtp) {
+        log("DEV OTP received (auto-filled)");
+        setOtp(res.devOtp);
+      } else {
+        setOtp("");
+      }
 
       setShowOtpModal(true);
-    } catch (err: any) {
-      alert(err?.message || "Failed to send OTP. Check backend is running.");
+    } catch (error: any) {
+      errLog("OTP request failed", error);
+      alert(error?.message || "Failed to send OTP. Check backend is running.");
     } finally {
       setLoadingOtp(false);
+      log("handleSubmit end");
     }
   };
 
   const handleProceed = async () => {
-    if (!/^\d{6}$/.test(otp.trim())) {
+    const code = otp.trim();
+
+    log("handleProceed start", {
+      otpLength: code.length,
+      otpMasked: code ? `${code[0]}*****${code[5] || ""}` : "",
+    });
+
+    if (!/^\d{6}$/.test(code)) {
+      warn("OTP invalid format", { codeLength: code.length });
       alert("OTP must be exactly 6 digits.");
       return;
     }
 
     const fn = normalizeName(firstName).slice(0, 12);
     const ln = normalizeName(lastName).slice(0, 12);
+    const trimmedEmail = email.trim();
 
     try {
       setLoadingSignup(true);
 
+      log("Calling signup API...", {
+        firstName: fn,
+        lastName: ln,
+        email: trimmedEmail,
+        otpLength: code.length,
+      });
+
       const res = await signup({
         firstName: fn,
         lastName: ln,
-        email: email.trim(),
+        email: trimmedEmail,
         password,
         confirmPassword,
-        code: otp.trim(),
+        code,
       });
+
+      log("Signup success", res);
 
       alert(res.message);
       setShowOtpModal(false);
       navigate("/login");
-    } catch (err: any) {
-      alert(err?.message || "Signup failed. OTP might be wrong/expired.");
+    } catch (error: any) {
+      errLog("Signup failed", error);
+      alert(error?.message || "Signup failed. OTP might be wrong/expired.");
     } finally {
       setLoadingSignup(false);
+      log("handleProceed end");
     }
   };
 
   const handleResend = async () => {
+    const trimmedEmail = email.trim();
+    log("Resend OTP start", { email: trimmedEmail });
+
     try {
       setLoadingOtp(true);
-      const res = await requestSignupOtp(email.trim());
+      const res = await requestSignupOtp(trimmedEmail);
+
+      log("Resend OTP success", res);
       alert(res.message);
 
       if (res.devOtp) setOtp(res.devOtp);
       else setOtp("");
-    } catch (err: any) {
-      alert(err?.message || "Failed to resend OTP.");
+    } catch (error: any) {
+      errLog("Resend OTP failed", error);
+      alert(error?.message || "Failed to resend OTP.");
     } finally {
       setLoadingOtp(false);
+      log("Resend OTP end");
     }
+  };
+
+  // ✅ OTP input helpers
+  const setOtpDigit = (index: number, digit: string) => {
+    const sanitized = digit.replace(/\D/g, "");
+    if (!sanitized) return;
+
+    const chars = otp.split("");
+    chars[index] = sanitized[0];
+    const nextOtp = chars.join("").slice(0, 6);
+
+    setOtp(nextOtp);
+
+    log("OTP digit set", { index, digit: sanitized[0], otpNow: nextOtp });
+
+    const next = document.getElementById(`otp-${index + 1}`) as HTMLInputElement | null;
+    if (next) next.focus();
+  };
+
+  const clearOtpDigit = (index: number) => {
+    const chars = otp.split("");
+    chars[index] = "";
+    const nextOtp = chars.join("");
+    setOtp(nextOtp);
+
+    log("OTP digit cleared", { index, otpNow: nextOtp });
+
+    const prev = document.getElementById(`otp-${index - 1}`) as HTMLInputElement | null;
+    if (prev) prev.focus();
   };
 
   return (
@@ -245,7 +342,10 @@ export default function SignupPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => {
+                      setShowPassword(!showPassword);
+                      log("toggle showPassword", { next: !showPassword });
+                    }}
                     className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
                   >
                     <img
@@ -275,7 +375,10 @@ export default function SignupPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => {
+                      setShowPassword(!showPassword);
+                      log("toggle showPassword", { next: !showPassword });
+                    }}
                     className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
                   >
                     <img
@@ -311,12 +414,12 @@ export default function SignupPage() {
         </div>
       </main>
 
-      {/* ===== OTP Modal ===== */}
+      {/* OTP Modal */}
       {showOtpModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md p-8 bg-white shadow-lg rounded-2xl">
             <h3 className="mb-2 text-xl font-bold text-black">Email Verification</h3>
-            <p className="mb-4 text-sm text-black">
+            <p className="mb-4 text-sm text-black break-words">
               A One-Time Password (OTP) has been sent to <strong>{email}</strong>.
               Please enter the 6-digit code below to verify your account.
             </p>
@@ -326,32 +429,18 @@ export default function SignupPage() {
               {[...Array(6)].map((_, index) => (
                 <input
                   key={index}
+                  id={`otp-${index}`}
                   type="text"
                   inputMode="numeric"
                   maxLength={1}
                   value={otp[index] || ""}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/, "");
-                    if (!val) return;
-
-                    const newOtp = otp.split("");
-                    newOtp[index] = val;
-                    setOtp(newOtp.join(""));
-
-                    const nextInput = document.getElementById(`otp-${index + 1}`);
-                    if (nextInput) (nextInput as HTMLInputElement).focus();
-                  }}
+                  onChange={(e) => setOtpDigit(index, e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Backspace") {
-                      const newOtp = otp.split("");
-                      newOtp[index] = "";
-                      setOtp(newOtp.join(""));
-
-                      const prevInput = document.getElementById(`otp-${index - 1}`);
-                      if (prevInput) (prevInput as HTMLInputElement).focus();
+                      e.preventDefault();
+                      clearOtpDigit(index);
                     }
                   }}
-                  id={`otp-${index}`}
                   title={`OTP digit ${index + 1}`}
                   placeholder="0"
                   className="w-12 h-12 text-xl text-center border rounded-lg border-black/10 focus:outline-none focus:ring-2 focus:ring-green-800"
@@ -359,26 +448,29 @@ export default function SignupPage() {
               ))}
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={handleResend}
-                className="text-sm text-green-800 hover:underline"
+                disabled={loadingOtp}
+                className={`text-sm text-green-800 hover:underline ${
+                  loadingOtp ? "opacity-60 cursor-not-allowed" : ""
+                }`}
               >
-                Resend OTP
+                {loadingOtp ? "Resending..." : "Resend OTP"}
               </button>
 
               <button
                 type="button"
-                disabled={otp.length !== 6}
+                disabled={otp.length !== 6 || loadingSignup}
                 onClick={handleProceed}
                 className={`px-4 py-2 text-white rounded-lg ${
-                  otp.length === 6
+                  otp.length === 6 && !loadingSignup
                     ? "bg-green-800 hover:bg-green-900"
                     : "bg-gray-400 cursor-not-allowed"
                 }`}
               >
-                Proceed
+                {loadingSignup ? "Creating..." : "Proceed"}
               </button>
             </div>
           </div>
