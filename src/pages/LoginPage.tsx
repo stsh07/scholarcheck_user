@@ -1,17 +1,134 @@
-import { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
 import EyeIcon from "../img/Eye.png";
 import EyeOffIcon from "../img/Hide.png";
-import { login } from "../api/auth";
+
+import LoginApproval from "../modals/LoginApproval";
+
+type LoginStartResponse = { message: string; challengeId: string };
+type LoginStatus = "PENDING" | "APPROVED" | "DENIED" | "EXPIRED";
+type LoginStatusResponse = { status: LoginStatus };
+type LoginCompleteResponse = {
+  message: string;
+  user: any;
+  accessToken: string;
+  refreshToken: string;
+};
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+async function loginStart(payload: { email: string; password: string }) {
+  const res = await fetch(`${API_URL}/api/auth/login-start`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.message || "Login start failed.");
+  return data as LoginStartResponse;
+}
+
+async function loginStatus(challengeId: string) {
+  const res = await fetch(`${API_URL}/api/auth/login-status/${challengeId}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.message || "Failed to check login status.");
+  return data as LoginStatusResponse;
+}
+
+async function loginComplete(payload: { challengeId: string }) {
+  const res = await fetch(`${API_URL}/api/auth/login-complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.message || "Login complete failed.");
+  return data as LoginCompleteResponse;
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  //approval flow UI state
+  const [challengeId, setChallengeId] = useState<string | null>(null);
+  const [status, setStatus] = useState<LoginStatus>("PENDING");
+  const [statusMsg, setStatusMsg] = useState<string>("");
+
+  const pollingRef = useRef<number | null>(null);
+
+  const stopPolling = () => {
+    if (pollingRef.current) {
+      window.clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
+
+  const resetApproval = () => {
+    stopPolling();
+    setChallengeId(null);
+    setStatus("PENDING");
+    setStatusMsg("");
+  };
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, []);
+
+  const startPolling = (cid: string) => {
+    stopPolling();
+
+    pollingRef.current = window.setInterval(async () => {
+      try {
+        const st = await loginStatus(cid);
+        setStatus(st.status);
+
+        if (st.status === "APPROVED") {
+          stopPolling();
+
+          const done = await loginComplete({ challengeId: cid });
+
+          localStorage.setItem("scholarcheck_accessToken", done.accessToken);
+          localStorage.setItem("scholarcheck_refreshToken", done.refreshToken);
+          localStorage.setItem("scholarcheck_user", JSON.stringify(done.user));
+
+          alert(done.message || "Login successful");
+          navigate("/home", { replace: true });
+        }
+
+        if (st.status === "DENIED") {
+          stopPolling();
+          setStatusMsg(
+            "This login was denied. If this wasn’t you, reset your password immediately."
+          );
+        }
+
+        if (st.status === "EXPIRED") {
+          stopPolling();
+          setStatusMsg(
+            "This login request expired. Please log in again to request a new approval email."
+          );
+        }
+      } catch (e: any) {
+        setStatusMsg(e?.message || "Could not check approval status.");
+      }
+    }, 2500);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,16 +160,20 @@ export default function LoginPage() {
 
     try {
       setLoading(true);
+      resetApproval();
 
-      const res = await login({ email: trimmedEmail, password });
+      //Step 1: Start login -> sends email -> returns challengeId
+      const res = await loginStart({ email: trimmedEmail, password });
 
-      localStorage.setItem("scholarcheck_accessToken", res.accessToken);
-      localStorage.setItem("scholarcheck_refreshToken", res.refreshToken);
-      localStorage.setItem("scholarcheck_user", JSON.stringify(res.user));
+      setChallengeId(res.challengeId);
+      setStatus("PENDING");
+      setStatusMsg(
+        res.message ||
+          "We sent a verification email. Please approve this login to continue."
+      );
 
-      alert(res.message);
-
-      navigate("/home", { replace: true });
+      //Step 2: Poll until approved/denied/expired
+      startPolling(res.challengeId);
     } catch (err: any) {
       alert(err?.message || "Login failed. Check email/password.");
     } finally {
@@ -60,8 +181,43 @@ export default function LoginPage() {
     }
   };
 
+  const waitingApproval = !!challengeId;
+
+  const resendApproval = async () => {
+    try {
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail || !password) {
+        alert("Please enter your email and password first.");
+        return;
+      }
+
+      setLoading(true);
+      resetApproval();
+
+      const res = await loginStart({ email: trimmedEmail, password });
+      setChallengeId(res.challengeId);
+      setStatus("PENDING");
+      setStatusMsg(res.message || "We sent a new verification email.");
+      startPolling(res.challengeId);
+    } catch (e: any) {
+      alert(e?.message || "Failed to resend approval email.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-white">
+      {/* Modal */}
+      <LoginApproval
+        open={waitingApproval}
+        status={status}
+        message={statusMsg}
+        loading={loading}
+        onClose={resetApproval}
+        onResend={resendApproval}
+      />
+
       {/* HEADER */}
       <header className="w-full bg-white border-b border-gray-300">
         <div className="flex items-center justify-between w-full max-w-6xl gap-3 px-4 py-4 mx-auto sm:px-6">
@@ -118,6 +274,7 @@ export default function LoginPage() {
                   placeholder="Enter your email"
                   className="w-full max-w-full px-4 py-3 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                   required
+                  disabled={waitingApproval}
                 />
               </div>
 
@@ -145,11 +302,13 @@ export default function LoginPage() {
                     placeholder="Enter your password"
                     className="w-full max-w-full px-4 py-3 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                     required
+                    disabled={waitingApproval}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
+                    disabled={waitingApproval}
                   >
                     <img
                       src={showPassword ? EyeOffIcon : EyeIcon}
@@ -163,14 +322,18 @@ export default function LoginPage() {
               {/* Button */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || waitingApproval}
                 className={`w-full rounded-xl py-3 font-semibold text-white transition-colors ${
-                  loading
+                  loading || waitingApproval
                     ? "bg-green-800/60 cursor-not-allowed"
                     : "bg-green-800 hover:bg-green-900"
                 }`}
               >
-                {loading ? "Logging in..." : "Log In"}
+                {loading
+                  ? "Logging in..."
+                  : waitingApproval
+                  ? "Waiting for email approval..."
+                  : "Log In"}
               </button>
             </form>
 
