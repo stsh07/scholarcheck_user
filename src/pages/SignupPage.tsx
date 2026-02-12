@@ -22,9 +22,21 @@ export default function SignupPage() {
   const [loadingOtp, setLoadingOtp] = useState(false);
   const [loadingSignup, setLoadingSignup] = useState(false);
 
+  // ✅ Limits requested
+  const MAX_NAME_LEN = 25;
+  const MAX_EMAIL_LEN = 50;
+
+  // ✅ Name rules: letters with optional separators (space, apostrophe, hyphen).
+  // - Does NOT allow numbers
+  // - Supports: "Juan", "De la Cruz", "O'Neil", "Anne-Marie"
   const nameRegex = /^[A-Za-z]+(?:[ '\-][A-Za-z]+)*$/;
 
+  // ✅ Email: general valid email (not just .com). Also blocks spaces.
+  // This is a practical regex for frontend validation.
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
   const normalizeName = (s: string) => s.trim().replace(/\s+/g, " ");
+  const normalizeEmail = (s: string) => s.trim();
 
   // ✅ Helper logger (clean + consistent)
   const LOG_PREFIX = "[SIGNUP]";
@@ -39,9 +51,9 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const fn = normalizeName(firstName).slice(0, 12);
-    const ln = normalizeName(lastName).slice(0, 12);
-    const trimmedEmail = email.trim();
+    const fn = normalizeName(firstName);
+    const ln = normalizeName(lastName);
+    const trimmedEmail = normalizeEmail(email);
 
     // ✅ DO NOT LOG PASSWORDS
     log("handleSubmit start", {
@@ -52,30 +64,38 @@ export default function SignupPage() {
       confirmPasswordLength: confirmPassword.length,
     });
 
-    // ✅ First & Last Name validation
-    if (!nameRegex.test(fn) || fn.replace(/[^A-Za-z]/g, "").length < 2) {
-      warn("First name validation failed", { fn });
-      alert("First Name must contain 2–12 letters and no numbers.");
+    // ✅ First & Last Name validation (max 25, no numbers)
+    if (fn.length === 0 || fn.length > MAX_NAME_LEN) {
+      warn("First name length invalid", { fnLength: fn.length });
+      alert(`First Name must be 1–${MAX_NAME_LEN} characters.`);
       return;
     }
-    if (!nameRegex.test(ln) || ln.replace(/[^A-Za-z]/g, "").length < 2) {
-      warn("Last name validation failed", { ln });
-      alert("Last Name must contain 2–12 letters and no numbers.");
+    if (!nameRegex.test(fn)) {
+      warn("First name regex failed", { fn });
+      alert("First Name must contain letters only (no numbers).");
       return;
     }
 
-    // ✅ Email validation
-    const emailOk =
-      trimmedEmail.length <= 30 &&
-      !/\s/.test(trimmedEmail) &&
-      !/[A-Z]/.test(trimmedEmail) &&
-      /^[a-z0-9._%+-]+@[a-z0-9.-]+\.com$/.test(trimmedEmail);
+    if (ln.length === 0 || ln.length > MAX_NAME_LEN) {
+      warn("Last name length invalid", { lnLength: ln.length });
+      alert(`Last Name must be 1–${MAX_NAME_LEN} characters.`);
+      return;
+    }
+    if (!nameRegex.test(ln)) {
+      warn("Last name regex failed", { ln });
+      alert("Last Name must contain letters only (no numbers).");
+      return;
+    }
 
-    if (!emailOk) {
+    // ✅ Email validation (max 50 + valid email)
+    if (trimmedEmail.length === 0 || trimmedEmail.length > MAX_EMAIL_LEN) {
+      warn("Email length invalid", { length: trimmedEmail.length });
+      alert(`Email must be 1–${MAX_EMAIL_LEN} characters.`);
+      return;
+    }
+    if (/\s/.test(trimmedEmail) || !emailRegex.test(trimmedEmail)) {
       warn("Email validation failed", { trimmedEmail });
-      alert(
-        "Email must be max 30 characters, lowercase only, no spaces, and end with .com"
-      );
+      alert("Please enter a valid email address.");
       return;
     }
 
@@ -139,9 +159,19 @@ export default function SignupPage() {
       return;
     }
 
-    const fn = normalizeName(firstName).slice(0, 12);
-    const ln = normalizeName(lastName).slice(0, 12);
-    const trimmedEmail = email.trim();
+    const fn = normalizeName(firstName);
+    const ln = normalizeName(lastName);
+    const trimmedEmail = normalizeEmail(email);
+
+    // ✅ Re-check length constraints before sending
+    if (fn.length > MAX_NAME_LEN || ln.length > MAX_NAME_LEN) {
+      alert(`First/Last Name must be max ${MAX_NAME_LEN} characters.`);
+      return;
+    }
+    if (trimmedEmail.length > MAX_EMAIL_LEN) {
+      alert(`Email must be max ${MAX_EMAIL_LEN} characters.`);
+      return;
+    }
 
     try {
       setLoadingSignup(true);
@@ -177,8 +207,18 @@ export default function SignupPage() {
   };
 
   const handleResend = async () => {
-    const trimmedEmail = email.trim();
+    const trimmedEmail = normalizeEmail(email);
     log("Resend OTP start", { email: trimmedEmail });
+
+    // ✅ prevent resend if email invalid
+    if (trimmedEmail.length === 0 || trimmedEmail.length > MAX_EMAIL_LEN) {
+      alert(`Email must be 1–${MAX_EMAIL_LEN} characters.`);
+      return;
+    }
+    if (/\s/.test(trimmedEmail) || !emailRegex.test(trimmedEmail)) {
+      alert("Please enter a valid email address.");
+      return;
+    }
 
     try {
       setLoadingOtp(true);
@@ -290,7 +330,7 @@ export default function SignupPage() {
                     <input
                       id="firstName"
                       type="text"
-                      maxLength={12}
+                      maxLength={MAX_NAME_LEN}
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder="First name"
@@ -309,7 +349,7 @@ export default function SignupPage() {
                     <input
                       id="lastName"
                       type="text"
-                      maxLength={12}
+                      maxLength={MAX_NAME_LEN}
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder="Last name"
@@ -321,15 +361,18 @@ export default function SignupPage() {
 
                 {/* Email */}
                 <div className="flex flex-col min-w-0 gap-1">
-                  <label htmlFor="email" className="text-sm font-medium text-black">
+                  <label
+                    htmlFor="email"
+                    className="text-sm font-medium text-black"
+                  >
                     Email
                   </label>
                   <input
                     id="email"
                     type="email"
-                    maxLength={30}
+                    maxLength={MAX_EMAIL_LEN}
                     value={email}
-                    onChange={(e) => setEmail(e.target.value.toLowerCase())}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
                     className="w-full max-w-full px-4 py-2 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                     required
@@ -441,8 +484,8 @@ export default function SignupPage() {
               </h3>
               <p className="mb-4 text-sm text-black break-words">
                 A One-Time Password (OTP) has been sent to{" "}
-                <strong className="break-words">{email}</strong>. Please enter the
-                6-digit code below to verify your account.
+                <strong className="break-words">{email}</strong>. Please enter
+                the 6-digit code below to verify your account.
               </p>
 
               {/* ✅ OTP Input (responsive, prevents overflow) */}
