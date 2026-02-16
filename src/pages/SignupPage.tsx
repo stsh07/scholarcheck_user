@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
 import EyeIcon from "../img/Eye.png";
 import EyeOffIcon from "../img/Hide.png";
 import { requestSignupOtp, signup } from "../api/auth";
+import OtpModal from "../modals/OtpModal";
+
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -18,7 +20,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   // ===============================
-  // PASSWORD VISIBILITY (SEPARATE)
+  // PASSWORD VISIBILITY
   // ===============================
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -28,7 +30,6 @@ export default function SignupPage() {
   // ===============================
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otp, setOtp] = useState("");
-
   const [loadingOtp, setLoadingOtp] = useState(false);
   const [loadingSignup, setLoadingSignup] = useState(false);
 
@@ -302,7 +303,6 @@ export default function SignupPage() {
                     maxLength={MAX_EMAIL_LEN}
                     value={email}
                     onChange={(e) => {
-                      // ❌ prevent spaces
                       const val = e.target.value.replace(/\s/g, "");
                       setEmail(val);
                       validateField("email", val);
@@ -328,7 +328,6 @@ export default function SignupPage() {
                       maxLength={16}
                       value={password}
                       onChange={(e) => {
-                        // ❌ prevent spaces
                         const val = e.target.value.replace(/\s/g, "");
                         setPassword(val);
                         validateField("password", val);
@@ -368,7 +367,6 @@ export default function SignupPage() {
                       maxLength={16}
                       value={confirmPassword}
                       onChange={(e) => {
-                        // ❌ prevent spaces
                         const val = e.target.value.replace(/\s/g, "");
                         setConfirmPassword(val);
                         validateField("confirmPassword", val);
@@ -419,6 +417,31 @@ export default function SignupPage() {
             </div>
           </div>
         </main>
+
+        {/* ====================== OTP MODAL ====================== */}
+        {showOtpModal && (
+          <OtpModal
+            email={email}
+            otp={otp}
+            setOtp={setOtp}
+            onClose={() => setShowOtpModal(false)}
+            onProceed={handleProceed}
+            loadingOtp={loadingOtp}
+            loadingSignup={loadingSignup}
+            requestResendOtp={async () => {
+              try {
+                setLoadingOtp(true);
+                const res = await requestSignupOtp(email);
+                alert(res.message);
+                if (res.devOtp) setOtp(res.devOtp);
+              } catch (err: any) {
+                alert(err?.message || "Failed to resend OTP.");
+              } finally {
+                setLoadingOtp(false);
+              }
+            }}
+          />
+        )}
       </div>
     </div>
   );

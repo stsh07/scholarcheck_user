@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
                 Forgot Password
               </h2>
               <p className="mb-6 text-sm font-normal text-black break-words sm:text-base">
-                Enter your registered email to reset your password.
+                Enter your registered email to receive a verification code.
               </p>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -123,7 +123,7 @@ export default function ForgotPasswordPage() {
                       : "bg-green-800 hover:bg-green-900"
                   }`}
                 >
-                  {loading ? "Sending..." : "Send Password Reset Link"}
+                  {loading ? "Sending..." : "Send"}
                 </button>
               </form>
 
