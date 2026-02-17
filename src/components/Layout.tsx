@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, FileText, MessageCircle, LogOut } from "lucide-react";
 import Logo from "../img/PRIMARY.png";
 import BellIcon from "../img/Notification.png";
 import UserIcon from "../img/Profile.png";
 import { ProfileModal } from "../modals/ProfileModal";
 import { NotificationModal } from "../modals/NotificationModal";
+import { LogoutModal } from "../modals/LogoutModal";
 
 function cn(...classes: (string | undefined | false)[]) {
   return classes.filter(Boolean).join(" ");
@@ -15,7 +16,6 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-// Sidebar nav items
 const navItems = [
   { icon: Home, label: "Home", path: "/home" },
   { icon: FileText, label: "Application Form", path: "/application-form" },
@@ -32,12 +32,14 @@ type StoredUser = {
 
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
 
   // ===== Modal states =====
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
-  // ===== Get logged-in user from localStorage =====
+  // ===== Get logged-in user =====
   const user: StoredUser = useMemo(() => {
     const raw = localStorage.getItem("scholarcheck_user");
 
@@ -62,24 +64,23 @@ export function Layout({ children }: LayoutProps) {
     }
   }, []);
 
-  // ===== Sample notifications =====
   const notifications = [
     "Profile update required\nPlease update your GPA information",
     "Scholarship payout scheduled next week",
     "New scholarship opportunity available",
   ];
 
-  // ===== Logout handler =====
-  const handleLogout = () => {
-    const confirmed = window.confirm("Are you sure you want to logout?");
-    if (!confirmed) return;
-
-    // Clear session storage
+  // ===== Confirm Logout =====
+  const handleConfirmLogout = () => {
+    // Clear session
     localStorage.removeItem("scholarcheck_accessToken");
     localStorage.removeItem("scholarcheck_refreshToken");
     localStorage.removeItem("scholarcheck_user");
 
-    window.location.href = "/login";
+    setLogoutOpen(false);
+
+    // SPA navigation (no reload, no weird localhost flash)
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -123,7 +124,7 @@ export function Layout({ children }: LayoutProps) {
 
           <div className="mt-auto">
             <button
-              onClick={handleLogout}
+              onClick={() => setLogoutOpen(true)}
               className="flex items-center w-full gap-3 px-4 py-3 text-gray-700 transition-colors duration-200 rounded-lg hover:bg-gray-100"
             >
               <LogOut className="w-5 h-5" />
@@ -135,12 +136,11 @@ export function Layout({ children }: LayoutProps) {
 
       {/* ===== MAIN AREA ===== */}
       <div className="flex-1 ml-[280px] flex flex-col">
-        {/* ===== HEADER ===== */}
         <header className="fixed top-0 left-[280px] right-0 z-50 flex items-center justify-between px-6 py-4 bg-white border-b border-gray-300">
           <div></div>
 
           <div className="relative flex items-center gap-4">
-            {/* ===== Notification Button ===== */}
+            {/* Notification */}
             <div className="relative">
               <button
                 onClick={() => setNotificationOpen(!notificationOpen)}
@@ -156,7 +156,7 @@ export function Layout({ children }: LayoutProps) {
               />
             </div>
 
-            {/* ===== Profile Button ===== */}
+            {/* Profile */}
             <div className="relative">
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
@@ -176,11 +176,17 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </header>
 
-        {/* ===== CONTENT ===== */}
         <main className="mt-[72px] p-8 bg-gray-50 min-h-screen">
           {children}
         </main>
       </div>
+
+      {/* ===== Logout Modal ===== */}
+      <LogoutModal
+        isOpen={logoutOpen}
+        onClose={() => setLogoutOpen(false)}
+        onConfirm={handleConfirmLogout}
+      />
     </div>
   );
 }
