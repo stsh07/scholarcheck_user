@@ -1,41 +1,62 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+// src/pages/ForgotPasswordPage.tsx
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
+import { requestResetCode } from "../api/auth";
 
 export default function ForgotPasswordPage() {
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
+  const [serverMsg, setServerMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
   const MAX_EMAIL_LEN = 50;
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // ✅ match backend (.com only)
+  const emailComOnlyRegex = /^[^\s@]+@[A-Z0-9-]+(\.[A-Z0-9-]+)*\.com$/i;
+
+  const validateEmail = (raw: string) => {
+    const trimmed = raw.trim().replace(/\s/g, "").toLowerCase();
+
+    if (!trimmed) return "Email is required.";
+    if (trimmed.length > MAX_EMAIL_LEN) return `Maximum ${MAX_EMAIL_LEN} characters.`;
+    if (!emailComOnlyRegex.test(trimmed)) return "Email must be a valid address ending in .com";
+    return "";
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const trimmedEmail = email.trim().replace(/\s/g, "");
-
-    if (!trimmedEmail) {
-      setError("Email is required.");
-      return;
-    }
-    if (trimmedEmail.length > MAX_EMAIL_LEN) {
-      setError(`Maximum ${MAX_EMAIL_LEN} characters.`);
-      return;
-    }
-    if (!emailRegex.test(trimmedEmail)) {
-      setError("Enter a valid email.");
+    const cleaned = email.trim().replace(/\s/g, "").toLowerCase();
+    const msg = validateEmail(cleaned);
+    if (msg) {
+      setError(msg);
       return;
     }
 
     setError("");
+    setServerMsg("");
     setLoading(true);
 
-    // ✅ For now, just simulate sending
-    setTimeout(() => {
-      alert(`Simulated sending password reset link to ${trimmedEmail}`);
+    try {
+      const res = await requestResetCode(cleaned);
+
+      // optional: show devOtp if your backend returns it
+      if (res.devOtp) {
+        setServerMsg(`DEV OTP: ${res.devOtp}`);
+      } else {
+        setServerMsg(res.message || "Reset code sent.");
+      }
+
+      // ✅ go to verification page
+      navigate(`/email-verification?email=${encodeURIComponent(cleaned)}`);
+    } catch (err: any) {
+      setError(err?.message || "Failed to send reset code.");
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -67,7 +88,7 @@ export default function ForgotPasswordPage() {
                 ScholarCheck
               </p>
               <p className="mt-4 text-sm text-gray-700 break-words">
-                Enter your registered email to receive a password reset link.
+                Enter your registered email to receive a verification code.
               </p>
             </div>
           </div>
@@ -96,13 +117,7 @@ export default function ForgotPasswordPage() {
                     onChange={(e) => {
                       const val = e.target.value.replace(/\s/g, "");
                       setEmail(val);
-
-                      if (!val) setError("Email is required.");
-                      else if (val.length > MAX_EMAIL_LEN)
-                        setError(`Maximum ${MAX_EMAIL_LEN} characters.`);
-                      else if (!emailRegex.test(val))
-                        setError("Enter a valid email.");
-                      else setError("");
+                      setError(validateEmail(val));
                     }}
                     placeholder="Enter your registered email"
                     className={`w-full max-w-full px-4 py-3 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
@@ -110,7 +125,11 @@ export default function ForgotPasswordPage() {
                     }`}
                     required
                   />
+
                   {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+                  {!error && serverMsg && (
+                    <p className="mt-1 text-xs text-green-800">{serverMsg}</p>
+                  )}
                 </div>
 
                 {/* BUTTON */}

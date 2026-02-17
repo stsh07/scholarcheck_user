@@ -1,27 +1,36 @@
-import { useState, useRef } from "react";
-import { Link } from "react-router-dom";
+// src/pages/EmailVerificationPage.tsx
+import React, { useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
+import { requestResetCode, verifyResetCode } from "../api/auth";
+
+function useQuery() {
+  const { search } = useLocation();
+  return useMemo(() => new URLSearchParams(search), [search]);
+}
 
 export default function EmailVerificationPage() {
-  const [code, setCode] = useState(["", "", "", ""]);
+  const navigate = useNavigate();
+  const query = useQuery();
+  const email = (query.get("email") || "").toLowerCase();
+
+  const DIGITS = 6;
+
+  const [code, setCode] = useState<string[]>(Array(DIGITS).fill(""));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
 
-  const inputRefs = [
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-  ];
+  const inputRefs = Array.from({ length: DIGITS }, () => useRef<HTMLInputElement>(null));
 
   const handleChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return; // only digits
+    if (!/^\d*$/.test(value)) return;
 
     const newCode = [...code];
     newCode[index] = value;
     setCode(newCode);
 
-    if (value && index < 3) inputRefs[index + 1].current?.focus();
+    if (value && index < DIGITS - 1) inputRefs[index + 1].current?.focus();
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
@@ -30,23 +39,55 @@ export default function EmailVerificationPage() {
     }
   };
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.some((d) => d === "")) {
-      setError("Please enter the 4-digit code.");
+
+    if (!email) {
+      setError("Missing email. Please go back to Forgot Password.");
+      return;
+    }
+
+    const joined = code.join("");
+    if (code.some((d) => d === "") || joined.length !== DIGITS) {
+      setError(`Please enter the ${DIGITS}-digit code.`);
       return;
     }
 
     setError("");
     setLoading(true);
-    setTimeout(() => {
-      alert(`Code entered: ${code.join("")}`);
+
+    try {
+      // ✅ FIX: verifyResetCode expects ONE argument (payload object)
+      const res = await verifyResetCode({ email, code: joined });
+
+      navigate(
+        `/reset-password?email=${encodeURIComponent(email)}&resetToken=${encodeURIComponent(
+          res.resetToken
+        )}`
+      );
+    } catch (err: any) {
+      setError(err?.message || "Verification failed.");
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
-  const handleResend = () => {
-    alert("Verification code resent!");
+  const handleResend = async () => {
+    if (!email) {
+      setError("Missing email. Please go back to Forgot Password.");
+      return;
+    }
+
+    setError("");
+    setResending(true);
+
+    try {
+      await requestResetCode(email);
+    } catch (err: any) {
+      setError(err?.message || "Failed to resend code.");
+    } finally {
+      setResending(false);
+    }
   };
 
   return (
@@ -69,34 +110,34 @@ export default function EmailVerificationPage() {
             <h2 className="mb-2 text-xl font-bold text-black">Email Verification</h2>
             <p className="text-4xl font-bold text-green-800">ScholarCheck</p>
             <p className="mt-4 text-sm text-gray-700">
-              Enter the 4-digit code we sent to your email address.
+              Enter the {DIGITS}-digit code we sent to your email address.
             </p>
+            {email && <p className="mt-2 text-sm font-medium text-black break-words">{email}</p>}
           </div>
         </div>
 
         {/* RIGHT */}
         <div className="flex justify-center flex-1 px-4 py-10 sm:px-6 sm:py-12">
           <div className="w-full max-w-md">
-            <h2 className="text-2xl sm:text-[25px] font-bold text-black mb-2">
-              Email Verification
-            </h2>
+            <h2 className="text-2xl sm:text-[25px] font-bold text-black mb-2">Email Verification</h2>
             <p className="mb-6 text-sm text-black sm:text-base">
-              Enter the 4-digit code we sent to your email address.
+              Enter the {DIGITS}-digit code we sent to your email address.
             </p>
 
             <form onSubmit={handleVerify} className="flex flex-col gap-4">
-              {/* 4-digit inputs */}
+              {/* OTP inputs */}
               <div className="flex justify-between gap-2 mb-2">
                 {code.map((digit, i) => (
                   <input
                     key={i}
                     ref={inputRefs[i]}
                     type="text"
+                    inputMode="numeric"
                     maxLength={1}
                     value={digit}
                     onChange={(e) => handleChange(i, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(i, e)}
-                    className="text-xl text-center border rounded-lg w-14 h-14 focus:outline-none focus:ring-2 focus:ring-green-800"
+                    className="text-xl text-center border rounded-lg w-12 h-12 sm:w-14 sm:h-14 focus:outline-none focus:ring-2 focus:ring-green-800"
                     required
                   />
                 ))}
@@ -104,15 +145,18 @@ export default function EmailVerificationPage() {
 
               {error && <p className="text-xs text-red-500">{error}</p>}
 
-              {/* Resend link beside text */}
+              {/* Resend */}
               <div className="flex items-center justify-center gap-1 mb-4 text-sm">
                 <span>Didn't receive code?</span>
                 <button
                   type="button"
                   onClick={handleResend}
-                  className="text-green-800 hover:underline"
+                  disabled={resending}
+                  className={`text-green-800 hover:underline ${
+                    resending ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
                 >
-                  Resend
+                  {resending ? "Resending..." : "Resend"}
                 </button>
               </div>
 
@@ -133,6 +177,13 @@ export default function EmailVerificationPage() {
                   Login
                 </Link>
               </p>
+
+              <p className="text-xs text-center text-black/70">
+                Wrong email?{" "}
+                <Link to="/forgot-password" className="text-green-800 hover:underline">
+                  Go back
+                </Link>
+              </p>
             </form>
           </div>
         </div>
@@ -140,9 +191,7 @@ export default function EmailVerificationPage() {
 
       {/* FOOTER */}
       <footer className="flex items-center justify-center w-full h-20 text-center bg-white border-t border-gray-200">
-        <p className="px-4 text-xs text-black sm:text-sm">
-          © 2026 ScholarCheck. All rights reserved.
-        </p>
+        <p className="px-4 text-xs text-black sm:text-sm">© 2026 ScholarCheck. All rights reserved.</p>
       </footer>
     </div>
   );

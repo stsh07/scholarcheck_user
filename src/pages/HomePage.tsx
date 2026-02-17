@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { Layout } from "../components/Layout";
 
 interface Scholarship {
@@ -25,13 +26,48 @@ const scholarships: Scholarship[] = [
   },
 ];
 
+type StoredUser = {
+  id: number;
+  firstName: string;
+  lastName?: string;
+  email?: string;
+};
+
 export default function HomePage() {
+  const [user, setUser] = useState<StoredUser | null>(null);
+  const [greeting, setGreeting] = useState("Welcome");
+
+  useEffect(() => {
+    const rawUser = localStorage.getItem("scholarcheck_user");
+
+    if (!rawUser) return;
+
+    const parsed: StoredUser = JSON.parse(rawUser);
+    setUser(parsed);
+
+    // 👇 per-user login tracking
+    const firstLoginKey = `scholarcheck_has_logged_${parsed.id}`;
+
+    const hasLoggedBefore = localStorage.getItem(firstLoginKey);
+
+    if (hasLoggedBefore) {
+      setGreeting("Welcome back");
+    } else {
+      setGreeting("Welcome");
+      localStorage.setItem(firstLoginKey, "true");
+    }
+  }, []);
+
+  const firstName = useMemo(() => {
+    return user?.firstName || "Student";
+  }, [user]);
+
   return (
     <Layout>
       {/* Welcome Section */}
       <div className="mb-8">
         <h1 className="mb-2 text-4xl font-bold">
-          Welcome Back, John!
+          {greeting}, {firstName}!
         </h1>
         <p className="text-lg text-gray-600">
           Here are the latest scholarship payout announcements.
