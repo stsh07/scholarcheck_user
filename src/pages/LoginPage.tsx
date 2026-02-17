@@ -1,4 +1,3 @@
-// src/pages/LoginPage.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
@@ -6,7 +5,7 @@ import EyeIcon from "../img/Eye.png";
 import EyeOffIcon from "../img/Hide.png";
 import LoginErrorModal from "../modals/LoginErrorModal";
 
-import LoginApproval from "../modals/LoginApproval"; // ✅ adjust path if needed
+import LoginApproval from "../modals/LoginApproval";
 import { loginComplete, loginStart, loginStatus } from "../api/auth";
 
 type LoginStatus = "PENDING" | "APPROVED" | "DENIED" | "EXPIRED";
@@ -23,7 +22,6 @@ export default function LoginPage() {
   const [errorOpen, setErrorOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState("Incorrect email or password.");
 
-  // ✅ Approval modal state
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<LoginStatus>("PENDING");
   const [approvalMessage, setApprovalMessage] = useState(
@@ -35,7 +33,6 @@ export default function LoginPage() {
 
   const normalizeEmail = (v: string) => v.trim().toLowerCase();
 
-  // ✅ Polling interval
   useEffect(() => {
     if (!approvalOpen) return;
     if (!challengeIdRef.current) return;
@@ -51,7 +48,6 @@ export default function LoginPage() {
         setApprovalStatus(res.status);
 
         if (res.status === "APPROVED") {
-          // finish login
           setApprovalLoading(true);
           const done = await loginComplete({ challengeId: id });
 
@@ -75,7 +71,7 @@ export default function LoginPage() {
           );
         }
       } catch (e: any) {
-        // keep polling; optional show message
+        // keep polling
       }
     };
 
@@ -97,7 +93,6 @@ export default function LoginPage() {
     try {
       setLoading(true);
 
-      // ✅ Start approval login (sends email)
       const start = await loginStart({
         email: normalized,
         password,
@@ -151,7 +146,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-white">
+    <div className="min-h-screen overflow-x-hidden bg-white flex flex-col">
       <header className="w-full bg-white border-b border-gray-300">
         <div className="flex items-center justify-between w-full max-w-6xl gap-3 px-4 py-4 mx-auto sm:px-6">
           <div className="flex items-center min-w-0 gap-2">
@@ -167,117 +162,117 @@ export default function LoginPage() {
         </div>
       </header>
 
-      <main className="flex flex-col w-full max-w-6xl mx-auto lg:flex-row">
-        <div className="hidden lg:flex lg:w-1/2 bg-green-50">
-          <div className="px-10 py-12 xl:px-12">
-            <div className="max-w-md">
-              <h2 className="mb-2 text-xl font-bold text-black">
-                Welcome Back to
-              </h2>
-              <p className="text-4xl font-bold leading-tight text-green-800">
-                ScholarCheck
-              </p>
-              <p className="mt-4 text-sm text-gray-700">
-                Log in to access your account and continue your scholarship
-                journey.
-              </p>
-            </div>
-          </div>
+      {/* ✅ HALF-PAGE GREEN BG */}
+      <main className="relative flex-1">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="h-full w-1/2 bg-[#F0FDF4]" />
         </div>
 
-        <div className="flex items-start justify-center flex-1 w-full px-4 py-10 sm:px-6 sm:py-12">
-          <div className="w-full max-w-md">
-            <h2 className="text-2xl sm:text-[25px] font-bold text-black mb-2">
-              Log In
-            </h2>
-            <p className="mb-6 text-sm font-normal text-black sm:text-base">
-              Please enter your credentials to access your account.
-            </p>
-
-            <form
-              noValidate
-              onSubmit={handleSubmit}
-              className="flex flex-col gap-4"
-            >
-              <div className="flex flex-col min-w-0 gap-1">
-                <label
-                  htmlFor="email"
-                  className="text-sm font-medium text-black"
-                >
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="text"
-                  inputMode="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  className="w-full max-w-full px-4 py-3 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
-                  required
-                />
+        <div className="relative flex flex-col w-full max-w-6xl mx-auto lg:flex-row lg:min-h-[calc(100vh-80px)]">
+          {/* LEFT */}
+          <div className="hidden lg:flex lg:w-1/2">
+            <div className="px-10 py-12 xl:px-12">
+              <div className="max-w-md">
+                <h2 className="mb-2 text-xl font-bold text-black">
+                  Welcome Back to
+                </h2>
+                <p className="text-4xl font-bold leading-tight text-green-800">
+                  ScholarCheck
+                </p>
+                <p className="mt-4 text-sm text-gray-700">
+                  Log in to access your account and continue your scholarship
+                  journey.
+                </p>
               </div>
+            </div>
+          </div>
 
-              <div className="flex flex-col min-w-0 gap-1">
-                <div className="flex items-center justify-between gap-3 mb-1">
-                  <label
-                    htmlFor="password"
-                    className="text-sm font-medium text-black"
-                  >
-                    Password
+          {/* RIGHT */}
+          <div className="flex items-start justify-center flex-1 w-full px-4 py-10 sm:px-6 sm:py-12 bg-white">
+            <div className="w-full max-w-md">
+              <h2 className="text-2xl sm:text-[25px] font-bold text-black mb-2">
+                Log In
+              </h2>
+              <p className="mb-6 text-sm font-normal text-black sm:text-base">
+                Please enter your credentials to access your account.
+              </p>
+
+              <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <div className="flex flex-col min-w-0 gap-1">
+                  <label htmlFor="email" className="text-sm font-medium text-black">
+                    Email
                   </label>
-                  <Link
-                    to="/forgot-password"
-                    className="text-sm text-green-800 shrink-0 hover:underline"
-                  >
-                    Forgot your password?
-                  </Link>
-                </div>
-
-                <div className="relative">
                   <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    id="email"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
                     className="w-full max-w-full px-4 py-3 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                     required
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
-                  >
-                    <img
-                      src={showPassword ? EyeOffIcon : EyeIcon}
-                      alt="Toggle password"
-                      className="object-contain w-full h-full"
-                    />
-                  </button>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className={`w-full rounded-xl py-3 font-semibold text-white transition-colors ${
-                  loading
-                    ? "bg-green-800/60 cursor-not-allowed"
-                    : "bg-green-800 hover:bg-green-900"
-                }`}
-              >
-                {loading ? "Logging in..." : "Log In"}
-              </button>
-            </form>
+                <div className="flex flex-col min-w-0 gap-1">
+                  <div className="flex items-center justify-between gap-3 mb-1">
+                    <label htmlFor="password" className="text-sm font-medium text-black">
+                      Password
+                    </label>
+                    <Link
+                      to="/forgot-password"
+                      className="text-sm text-green-800 shrink-0 hover:underline"
+                    >
+                      Forgot your password?
+                    </Link>
+                  </div>
 
-            <p className="mt-6 text-sm text-center text-black sm:text-base">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-green-800 hover:underline">
-                Sign Up
-              </Link>
-            </p>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="w-full max-w-full px-4 py-3 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
+                      aria-label="Toggle password visibility"
+                    >
+                      <img
+                        src={showPassword ? EyeOffIcon : EyeIcon}
+                        alt="Toggle password"
+                        className="object-contain w-full h-full"
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`w-full rounded-xl py-3 font-semibold text-white transition-colors ${
+                    loading
+                      ? "bg-green-800/60 cursor-not-allowed"
+                      : "bg-green-800 hover:bg-green-900"
+                  }`}
+                >
+                  {loading ? "Logging in..." : "Log In"}
+                </button>
+              </form>
+
+              <p className="mt-6 text-sm text-center text-black sm:text-base">
+                Don't have an account?{" "}
+                <Link to="/signup" className="text-green-800 hover:underline">
+                  Sign Up
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </main>
@@ -288,7 +283,6 @@ export default function LoginPage() {
         </p>
       </footer>
 
-      {/* ✅ Login approval modal */}
       <LoginApproval
         open={approvalOpen}
         status={approvalStatus}

@@ -1,4 +1,3 @@
-// src/pages/ForgotPasswordPage.tsx
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
@@ -13,8 +12,6 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
 
   const MAX_EMAIL_LEN = 50;
-
-  // ✅ match backend (.com only)
   const emailComOnlyRegex = /^[^\s@]+@[A-Z0-9-]+(\.[A-Z0-9-]+)*\.com$/i;
 
   const validateEmail = (raw: string) => {
@@ -43,14 +40,9 @@ export default function ForgotPasswordPage() {
     try {
       const res = await requestResetCode(cleaned);
 
-      // optional: show devOtp if your backend returns it
-      if (res.devOtp) {
-        setServerMsg(`DEV OTP: ${res.devOtp}`);
-      } else {
-        setServerMsg(res.message || "Reset code sent.");
-      }
+      if (res.devOtp) setServerMsg(`DEV OTP: ${res.devOtp}`);
+      else setServerMsg(res.message || "Reset code sent.");
 
-      // ✅ go to verification page
       navigate(`/email-verification?email=${encodeURIComponent(cleaned)}`);
     } catch (err: any) {
       setError(err?.message || "Failed to send reset code.");
@@ -60,41 +52,47 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="w-screen min-h-screen overflow-x-hidden bg-white overscroll-x-none touch-pan-y">
-      <div className="w-full max-w-full overflow-x-hidden">
-        {/* HEADER */}
-        <header className="w-full overflow-x-hidden bg-white border-b border-gray-300">
-          <div className="flex items-center justify-between w-full max-w-6xl gap-3 px-4 py-4 mx-auto sm:px-6">
-            <div className="flex items-center min-w-0 gap-2">
-              <img
-                src={Logo}
-                alt="ScholarCheck Logo"
-                className="object-contain w-8 h-8 max-w-full sm:h-10 sm:w-10"
-              />
-              <span className="text-lg font-semibold text-gray-900 truncate sm:text-xl">
-                ScholarCheck
-              </span>
-            </div>
+    <div className="min-h-screen overflow-x-hidden bg-white flex flex-col">
+      {/* HEADER */}
+      <header className="w-full bg-white border-b border-gray-300">
+        <div className="flex items-center justify-between w-full max-w-6xl gap-3 px-4 py-4 mx-auto sm:px-6">
+          <div className="flex items-center min-w-0 gap-2">
+            <img
+              src={Logo}
+              alt="ScholarCheck Logo"
+              className="object-contain w-8 h-8 max-w-full sm:h-10 sm:w-10"
+            />
+            <span className="text-lg font-semibold text-gray-900 truncate sm:text-xl">
+              ScholarCheck
+            </span>
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* MAIN */}
-        <main className="flex flex-col w-full max-w-6xl mx-auto overflow-x-hidden lg:flex-row">
-          {/* LEFT (Desktop only) */}
-          <div className="hidden px-10 py-12 lg:flex lg:w-1/2 bg-green-50 xl:px-12">
-            <div className="max-w-md">
-              <h2 className="mb-2 text-xl font-bold text-black">Forgot Password?</h2>
-              <p className="text-4xl font-bold leading-tight text-green-800 break-words">
-                ScholarCheck
-              </p>
-              <p className="mt-4 text-sm text-gray-700 break-words">
-                Enter your registered email to receive a verification code.
-              </p>
+      {/* ✅ HALF-PAGE GREEN BG */}
+      <main className="relative flex-1">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="h-full w-1/2 bg-[#F0FDF4]" />
+        </div>
+
+        <div className="relative flex flex-col w-full max-w-6xl mx-auto lg:flex-row lg:min-h-[calc(100vh-80px)]">
+          {/* LEFT */}
+          <div className="hidden lg:flex lg:w-1/2">
+            <div className="px-10 py-12 xl:px-12">
+              <div className="max-w-md">
+                <h2 className="mb-2 text-xl font-bold text-black">Forgot Password?</h2>
+                <p className="text-4xl font-bold leading-tight text-green-800 break-words">
+                  ScholarCheck
+                </p>
+                <p className="mt-4 text-sm text-gray-700 break-words">
+                  Enter your registered email to receive a verification code.
+                </p>
+              </div>
             </div>
           </div>
 
           {/* RIGHT */}
-          <div className="flex items-start justify-center flex-1 w-full px-4 py-10 overflow-x-hidden sm:px-6 sm:py-12">
+          <div className="flex items-start justify-center flex-1 w-full px-4 py-10 sm:px-6 sm:py-12 bg-white">
             <div className="w-full max-w-md">
               <h2 className="text-2xl sm:text-[25px] font-bold text-black mb-2">
                 Forgot Password
@@ -104,7 +102,6 @@ export default function ForgotPasswordPage() {
               </p>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                {/* EMAIL */}
                 <div className="flex flex-col min-w-0 gap-1">
                   <label htmlFor="email" className="text-sm font-medium text-black">
                     Email
@@ -132,7 +129,6 @@ export default function ForgotPasswordPage() {
                   )}
                 </div>
 
-                {/* BUTTON */}
                 <button
                   type="submit"
                   disabled={loading || !!error}
@@ -154,15 +150,15 @@ export default function ForgotPasswordPage() {
               </p>
             </div>
           </div>
-        </main>
+        </div>
+      </main>
 
-        {/* FOOTER */}
-        <footer className="flex items-center justify-center w-full h-20 text-center bg-white border-t border-gray-200">
-          <p className="px-4 text-xs text-black break-words sm:text-sm">
-            © 2026 ScholarCheck. All rights reserved.
-          </p>
-        </footer>
-      </div>
+      {/* FOOTER */}
+      <footer className="flex items-center justify-center w-full h-20 text-center bg-white border-t border-gray-200">
+        <p className="px-4 text-xs text-black break-words sm:text-sm">
+          © 2026 ScholarCheck. All rights reserved.
+        </p>
+      </footer>
     </div>
   );
 }
