@@ -1,10 +1,10 @@
-// src/pages/LoginPage.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
 import EyeIcon from "../img/Eye.png";
 import EyeOffIcon from "../img/Hide.png";
 import LoginErrorModal from "../modals/LoginErrorModal";
+import FlashSuccess from "../modals/FlashSuccess";
 
 import LoginApproval from "../modals/LoginApproval"; // ✅ adjust path if needed
 import { loginComplete, loginStart, loginStatus } from "../api/auth";
@@ -61,7 +61,11 @@ export default function LoginPage() {
 
           setApprovalLoading(false);
           setApprovalOpen(false);
-          navigate("/home", { replace: true });
+          // ✅ Show flash message
+          setFlashSuccess(true);
+
+          // After flash disappears, navigate automatically
+          setTimeout(() => navigate("/home", { replace: true }), 3000);
           return;
         }
 
@@ -149,6 +153,8 @@ export default function LoginPage() {
       setApprovalLoading(false);
     }
   };
+  // Success modal states
+  const [flashSuccess, setFlashSuccess] = useState(false);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-white">
@@ -304,6 +310,14 @@ export default function LoginPage() {
         message={errorMsg || "Incorrect email or password."}
         onClose={() => setErrorOpen(false)}
       />
+
+      {/* ===== Flash Success Popup ===== */}
+      {flashSuccess && (
+        <FlashSuccess
+          message="Login Successful! Welcome back."
+          onClose={() => setFlashSuccess(false)}
+        />
+      )}
     </div>
   );
 }

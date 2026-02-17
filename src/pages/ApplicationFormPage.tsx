@@ -270,6 +270,8 @@ export default function ApplicationFormPage() {
       "dob",
       "gender",
       "address",
+      "phone",
+      "email",
       "fatherName",
       "fatherOccupation",
       "fatherIncome",
@@ -314,9 +316,43 @@ export default function ApplicationFormPage() {
           if (!form.gender) newErrors.gender = "Gender required.";
           break;
         case "address":
-          if (!form.address) newErrors.address = "Address required.";
-          break;
+          if (!form.address) {
+            newErrors.address = "Address required.";
+          } else {
+            const addr = form.address.toLowerCase().trim();
 
+            const district3Areas = [
+              "aguilar",
+              "bani",
+              "bugallon",
+              "mabini",
+              "mangaldan",
+              "mangatarem",
+              "pozorrubio",
+              "san carlos",
+              "san fabian",
+              "san manuel",
+              "san nicolas",
+              "santa barbara",
+              "santo tomas",
+              "sison",
+              "urdaneta",
+            ];
+
+            // Check if the address contains any valid district 3 area
+            const isValidDistrict3 = district3Areas.some((area) =>
+              addr.includes(area)
+            );
+
+            if (!isValidDistrict3) {
+              // Soft warning, user can still submit
+              newErrors.address = "Your address must be located in District 3 of Pangasinan.";
+            } else {
+              // Clear any previous warning if valid
+              newErrors.address = "";
+            }
+          }
+          break;
         case "fatherName":
           if (!form.fatherName) newErrors.fatherName = "Father's name required.";
           break;
@@ -390,7 +426,7 @@ export default function ApplicationFormPage() {
   // ===============================
   // Reset form
   // ===============================
-  const handleDelete = () => {
+  const handleClear = () => {
     setForm(initialForm);
     setErrors({});
   };
@@ -418,25 +454,28 @@ export default function ApplicationFormPage() {
           <h2 className="mb-2 text-xl font-bold">Personal Information</h2>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-            {personalFields.map((field) => (
-              <div key={field.name}>
-                <label className="block mb-1 font-medium">{field.label} *</label>
-                <input
-                  name={field.name}
-                  value={form[field.name]}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder={field.label}
-                  className="w-full px-3 py-2 border rounded"
-                />
-                {errors[field.name] && (
-                  <p className="text-xs text-red-500">{errors[field.name]}</p>
-                )}
-              </div>
-            ))}
+          {personalFields.map((field) => (
+            <div key={field.name}>
+              <label className="block mb-1 font-medium">
+                {field.name === "extension" ? "Extension (optional)" : `${field.label} *`}
+              </label>
+              <input
+                name={field.name}
+                value={form[field.name]}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                placeholder={field.label}
+                className="w-full px-3 py-2 border rounded"
+              />
+              {errors[field.name] && (
+                <p className="text-xs text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-4 mt-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 mt-4 sm:grid-cols-[auto_auto_auto] sm:gap-4 items-end justify-start">
+            {/* Date of Birth */}
             <div>
               <label className="block mb-1 font-medium">Date of Birth *</label>
               <input
@@ -451,7 +490,7 @@ export default function ApplicationFormPage() {
                 <p className="text-xs text-red-500">{errors.dob}</p>
               )}
             </div>
-
+            {/* Gender */}
             <div>
               <label className="block mb-1 font-medium">Gender *</label>
               <select
@@ -459,7 +498,7 @@ export default function ApplicationFormPage() {
                 value={form.gender}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                className="w-full px-3 py-2 border rounded"
+                className="px-3 py-2 border rounded w-80"
               >
                 <option value="">Select Gender</option>
                 {genders.map((g) => (
@@ -472,7 +511,7 @@ export default function ApplicationFormPage() {
                 <p className="text-xs text-red-500">{errors.gender}</p>
               )}
             </div>
-
+            {/* Address */}
             <div>
               <label className="block mb-1 font-medium">Address *</label>
               <input
@@ -480,11 +519,73 @@ export default function ApplicationFormPage() {
                 value={form.address}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                placeholder="Address"
-                className="w-full px-3 py-2 border rounded"
+                placeholder="Enter your address (House No. Barangay, City/Municipality, Province)"
+                className="px-3 py-2 border rounded w-[600px]"
               />
               {errors.address && (
                 <p className="text-xs text-red-500">{errors.address}</p>
+              )}
+            </div>
+            {/* Phone Number */}
+            <div>
+              <label className="block mb-1 font-medium">Phone Number *</label>
+              <input
+                name="phone"
+                value={form.phone || ""}
+                onChange={(e) => {
+                  // Only allow numbers
+                  const value = e.target.value.replace(/[^0-9]/g, "").slice(0, 11);
+                  setForm((prev) => ({ ...prev, phone: value }));
+                }}
+                onBlur={(e) => {
+                  if (!form.phone) {
+                    setErrors((prev) => ({ ...prev, phone: "Phone Number required." }));
+                  } else {
+                    setErrors((prev) => ({ ...prev, phone: "" }));
+                  }
+                }}
+                placeholder="Phone Number"
+                className="px-3 py-2 border rounded w-80"
+              />
+              {errors.phone && (
+                <p className="text-xs text-red-500">{errors.phone}</p>
+              )}
+            </div>
+            {/* Email Address */}
+            <div>
+              <label className="block mb-1 font-medium">Email Address *</label>
+              <input
+                type="email"
+                name="email"
+                value={form.email || ""}
+                onChange={(e) => {
+                  // Limit input to 30 characters while typing
+                  const limitedEmail = e.target.value.slice(0, 30);
+                  setForm((prev) => ({ ...prev, email: limitedEmail }));
+                }}
+                onBlur={() => {
+                  const email = form.email || "";
+                  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+                  if (!email) {
+                    setErrors((prev) => ({ ...prev, email: "Email Address required." }));
+                  } else if (!emailRegex.test(email)) {
+                    setErrors((prev) => ({ ...prev, email: "Invalid email format." }));
+                  } else {
+                    setErrors((prev) => ({ ...prev, email: "" }));
+                  }
+                }}
+                placeholder="Email Address"
+                className="w-full px-3 py-2 border rounded"
+              />
+              {errors.email && (
+                <p
+                  className={`text-xs ${
+                    errors.email.startsWith("⚠") ? "text-yellow-600" : "text-red-500"
+                  }`}
+                >
+                  {errors.email}
+                </p>
               )}
             </div>
           </div>
@@ -695,15 +796,15 @@ export default function ApplicationFormPage() {
         <div className="flex justify-center gap-4 mt-6">
           <button
             type="submit"
-            className="px-6 py-3 font-semibold text-white bg-green-800 rounded hover:bg-green-900"
+            className="px-6 py-3 font-semibold text-white bg-green-800 rounded-lg hover:bg-green-900"
           >
             Submit
           </button>
 
           <button
             type="button"
-            onClick={handleDelete}
-            className="px-6 py-3 font-semibold text-white bg-red-600 rounded hover:bg-red-700"
+            onClick={handleClear}
+            className="px-6 py-3 font-semibold text-black bg-gray-300 rounded-lg hover:bg-gray-500"
           >
             Clear
           </button>

@@ -1,4 +1,3 @@
-// src/pages/SignupPage.tsx
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
@@ -6,6 +5,7 @@ import EyeIcon from "../img/Eye.png";
 import EyeOffIcon from "../img/Hide.png";
 import { requestSignupOtp, signup } from "../api/auth";
 import OtpModal from "../modals/OtpModal";
+import FlashSuccess from "../modals/FlashSuccess";
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -23,6 +23,8 @@ export default function SignupPage() {
   const [otp, setOtp] = useState("");
   const [loadingOtp, setLoadingOtp] = useState(false);
   const [loadingSignup, setLoadingSignup] = useState(false);
+
+  const [flashSuccess, setFlashSuccess] = useState(false);
 
   const [errors, setErrors] = useState({
     firstName: "",
@@ -134,9 +136,12 @@ export default function SignupPage() {
         code: otp,
       });
 
-      alert(res.message);
-      setShowOtpModal(false);
-      navigate("/login");
+      // ✅ Show flash success popup
+      setShowOtpModal(false);        // close OTP modal
+      setFlashSuccess(true);         // trigger flash
+      // Automatically navigate after 3 seconds
+      setTimeout(() => navigate("/login"), 3000);
+
     } catch (error: any) {
       alert(error?.message || "Signup failed. OTP might be wrong/expired.");
     } finally {
@@ -363,6 +368,13 @@ export default function SignupPage() {
                 setLoadingOtp(false);
               }
             }}
+          />
+        )}
+        {/* ✅ Success Modal */}
+        {flashSuccess && (
+          <FlashSuccess
+            message="Account created successfully! You can now log in."
+            onClose={() => setFlashSuccess(false)}
           />
         )}
       </div>
