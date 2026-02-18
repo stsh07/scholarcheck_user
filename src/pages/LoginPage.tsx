@@ -6,6 +6,8 @@ import EyeOffIcon from "../img/Hide.png";
 import LoginErrorModal from "../modals/LoginErrorModal";
 
 import LoginApproval from "../modals/LoginApproval";
+import LoggedInSuccessfullyModal from "../modals/LoggedInSuccessfullyModal";
+
 import { loginComplete, loginStart, loginStatus } from "../api/auth";
 
 type LoginStatus = "PENDING" | "APPROVED" | "DENIED" | "EXPIRED";
@@ -20,7 +22,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const [errorOpen, setErrorOpen] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("Incorrect email or password.");
 
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<LoginStatus>("PENDING");
@@ -28,6 +29,9 @@ export default function LoginPage() {
     "We sent a verification email. Please approve this login to continue."
   );
   const [approvalLoading, setApprovalLoading] = useState(false);
+
+  // ✅ success modal (styled banner)
+  const [successOpen, setSuccessOpen] = useState(false);
 
   const challengeIdRef = useRef<string>("");
 
@@ -57,7 +61,14 @@ export default function LoginPage() {
 
           setApprovalLoading(false);
           setApprovalOpen(false);
-          navigate("/home", { replace: true });
+
+          // ✅ show success banner then go home
+          setSuccessOpen(true);
+          window.setTimeout(() => {
+            setSuccessOpen(false);
+            navigate("/home", { replace: true });
+          }, 1600);
+
           return;
         }
 
@@ -104,12 +115,6 @@ export default function LoginPage() {
       setApprovalMessage(start.message);
       setApprovalOpen(true);
     } catch (err: any) {
-      const msg =
-        err?.message ||
-        err?.response?.data?.message ||
-        "Incorrect email or password.";
-
-      setErrorMsg(msg);
       setErrorOpen(true);
     } finally {
       setLoading(false);
@@ -162,14 +167,12 @@ export default function LoginPage() {
         </div>
       </header>
 
-      {/* ✅ HALF-PAGE GREEN BG */}
       <main className="relative flex-1">
         <div className="pointer-events-none absolute inset-0">
           <div className="h-full w-1/2 bg-[#F0FDF4]" />
         </div>
 
         <div className="relative flex flex-col w-full max-w-6xl mx-auto lg:flex-row lg:min-h-[calc(100vh-80px)]">
-          {/* LEFT */}
           <div className="hidden lg:flex lg:w-1/2">
             <div className="px-10 py-12 xl:px-12">
               <div className="max-w-md">
@@ -187,7 +190,6 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* RIGHT */}
           <div className="flex items-start justify-center flex-1 w-full px-4 py-10 sm:px-6 sm:py-12 bg-white">
             <div className="w-full max-w-md">
               <h2 className="text-2xl sm:text-[25px] font-bold text-black mb-2">
@@ -292,11 +294,16 @@ export default function LoginPage() {
         onResend={handleResendApproval}
       />
 
-      <LoginErrorModal
-        open={errorOpen}
-        title="Incorrect Email or Password"
-        message={errorMsg || "Incorrect email or password."}
-        onClose={() => setErrorOpen(false)}
+      <LoginErrorModal open={errorOpen} onClose={() => setErrorOpen(false)} />
+
+      {/* ✅ Styled success */}
+      <LoggedInSuccessfullyModal
+        open={successOpen}
+        onClose={() => {
+          setSuccessOpen(false);
+          navigate("/home", { replace: true });
+        }}
+        autoCloseMs={1600}
       />
     </div>
   );

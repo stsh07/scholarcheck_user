@@ -1,3 +1,4 @@
+// src/pages/SignupPage.tsx
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
@@ -5,6 +6,7 @@ import EyeIcon from "../img/Eye.png";
 import EyeOffIcon from "../img/Hide.png";
 import { requestSignupOtp, signup } from "../api/auth";
 import OtpModal from "../modals/OtpModal";
+import SignedUpSuccessfullyModal from "../modals/SignUpSuccessfullyModal";
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -22,6 +24,9 @@ export default function SignupPage() {
   const [otp, setOtp] = useState("");
   const [loadingOtp, setLoadingOtp] = useState(false);
   const [loadingSignup, setLoadingSignup] = useState(false);
+
+  // ✅ NEW: success modal state
+  const [showSignupSuccess, setShowSignupSuccess] = useState(false);
 
   const [errors, setErrors] = useState({
     firstName: "",
@@ -51,33 +56,41 @@ export default function SignupPage() {
 
     if (field === "firstName") {
       if (!value.trim()) message = "First Name is required.";
-      else if (value.length > MAX_NAME_LEN) message = `Maximum ${MAX_NAME_LEN} characters.`;
-      else if (!nameRegex.test(value)) message = "Letters only. No numbers allowed.";
+      else if (value.length > MAX_NAME_LEN)
+        message = `Maximum ${MAX_NAME_LEN} characters.`;
+      else if (!nameRegex.test(value))
+        message = "Letters only. No numbers allowed.";
     }
 
     if (field === "lastName") {
       if (!value.trim()) message = "Last Name is required.";
-      else if (value.length > MAX_NAME_LEN) message = `Maximum ${MAX_NAME_LEN} characters.`;
-      else if (!nameRegex.test(value)) message = "Letters only. No numbers allowed.";
+      else if (value.length > MAX_NAME_LEN)
+        message = `Maximum ${MAX_NAME_LEN} characters.`;
+      else if (!nameRegex.test(value))
+        message = "Letters only. No numbers allowed.";
     }
 
     if (field === "email") {
       const v = normalizeEmail(value);
       if (!v) message = "Email is required.";
-      else if (v.length > MAX_EMAIL_LEN) message = `Maximum ${MAX_EMAIL_LEN} characters.`;
-      else if (!emailRegex.test(v)) message = "Email must be a valid address ending in .com";
+      else if (v.length > MAX_EMAIL_LEN)
+        message = `Maximum ${MAX_EMAIL_LEN} characters.`;
+      else if (!emailRegex.test(v))
+        message = "Email must be a valid address ending in .com";
     }
 
     if (field === "password") {
       if (!value) message = "Password is required.";
       else if (!passwordRegex.test(value)) {
-        message = "8–16 chars, uppercase, lowercase, number, special char (no spaces).";
+        message =
+          "8–16 chars, uppercase, lowercase, number, special char (no spaces).";
       }
     }
 
     if (field === "confirmPassword") {
       if (!value) message = "Confirm your password.";
-      else if (value !== (ctx?.password ?? "")) message = "Passwords do not match.";
+      else if (value !== (ctx?.password ?? ""))
+        message = "Passwords do not match.";
     }
 
     return message;
@@ -96,7 +109,9 @@ export default function SignupPage() {
       lastName: validateOne("lastName", lastName),
       email: validateOne("email", email),
       password: validateOne("password", password),
-      confirmPassword: validateOne("confirmPassword", confirmPassword, { password }),
+      confirmPassword: validateOne("confirmPassword", confirmPassword, {
+        password,
+      }),
     };
 
     setErrors(nextErrors);
@@ -138,9 +153,17 @@ export default function SignupPage() {
         code: otp,
       });
 
-      alert(res.message);
+      // ✅ Instead of alert + navigate immediately:
+      // 1) close OTP modal
+      // 2) show success modal
       setShowOtpModal(false);
-      navigate("/login");
+      setShowSignupSuccess(true);
+
+      // Optional: clear OTP for next time
+      setOtp("");
+
+      // Keep the backend message if you still want it in console
+      console.log(res?.message || "Signup successful");
     } catch (error: any) {
       alert(error?.message || "Signup failed. OTP might be wrong/expired.");
     } finally {
@@ -199,10 +222,17 @@ export default function SignupPage() {
                 Please enter your details to create an account.
               </p>
 
-              <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <form
+                noValidate
+                onSubmit={handleSubmit}
+                className="flex flex-col gap-4"
+              >
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="flex flex-col min-w-0 gap-1">
-                    <label htmlFor="firstName" className="text-sm font-medium text-black">
+                    <label
+                      htmlFor="firstName"
+                      className="text-sm font-medium text-black"
+                    >
                       First Name
                     </label>
                     <input
@@ -216,15 +246,24 @@ export default function SignupPage() {
                       }}
                       placeholder="First name"
                       className={`w-full max-w-full px-4 py-2 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
-                        errors.firstName ? "border-red-500 focus:ring-red-500" : "border-black/10"
+                        errors.firstName
+                          ? "border-red-500 focus:ring-red-500"
+                          : "border-black/10"
                       }`}
                       required
                     />
-                    {errors.firstName && <p className="mt-1 text-xs text-red-500">{errors.firstName}</p>}
+                    {errors.firstName && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors.firstName}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex flex-col min-w-0 gap-1">
-                    <label htmlFor="lastName" className="text-sm font-medium text-black">
+                    <label
+                      htmlFor="lastName"
+                      className="text-sm font-medium text-black"
+                    >
                       Last Name
                     </label>
                     <input
@@ -238,11 +277,17 @@ export default function SignupPage() {
                       }}
                       placeholder="Last name"
                       className={`w-full max-w-full px-4 py-2 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
-                        errors.lastName ? "border-red-500 focus:ring-red-500" : "border-black/10"
+                        errors.lastName
+                          ? "border-red-500 focus:ring-red-500"
+                          : "border-black/10"
                       }`}
                       required
                     />
-                    {errors.lastName && <p className="mt-1 text-xs text-red-500">{errors.lastName}</p>}
+                    {errors.lastName && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {errors.lastName}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -264,15 +309,22 @@ export default function SignupPage() {
                     }}
                     placeholder="Enter your email"
                     className={`w-full max-w-full px-4 py-2 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
-                      errors.email ? "border-red-500 focus:ring-red-500" : "border-black/10"
+                      errors.email
+                        ? "border-red-500 focus:ring-red-500"
+                        : "border-black/10"
                     }`}
                     required
                   />
-                  {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+                  {errors.email && (
+                    <p className="mt-1 text-xs text-red-500">{errors.email}</p>
+                  )}
                 </div>
 
                 <div className="flex flex-col min-w-0 gap-1">
-                  <label htmlFor="password" className="text-sm font-medium text-black">
+                  <label
+                    htmlFor="password"
+                    className="text-sm font-medium text-black"
+                  >
                     Password
                   </label>
                   <div className="relative">
@@ -285,11 +337,14 @@ export default function SignupPage() {
                         const val = e.target.value.replace(/\s/g, "");
                         setPassword(val);
                         validateAndSetField("password", val);
-                        if (confirmPassword) validateAndSetField("confirmPassword", confirmPassword);
+                        if (confirmPassword)
+                          validateAndSetField("confirmPassword", confirmPassword);
                       }}
                       placeholder="Enter your password"
                       className={`w-full max-w-full px-4 py-2 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
-                        errors.password ? "border-red-500 focus:ring-red-500" : "border-black/10"
+                        errors.password
+                          ? "border-red-500 focus:ring-red-500"
+                          : "border-black/10"
                       }`}
                       required
                     />
@@ -306,11 +361,16 @@ export default function SignupPage() {
                       />
                     </button>
                   </div>
-                  {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
+                  {errors.password && (
+                    <p className="mt-1 text-xs text-red-500">{errors.password}</p>
+                  )}
                 </div>
 
                 <div className="flex flex-col min-w-0 gap-1">
-                  <label htmlFor="confirmPassword" className="text-sm font-medium text-black">
+                  <label
+                    htmlFor="confirmPassword"
+                    className="text-sm font-medium text-black"
+                  >
                     Confirm Password
                   </label>
                   <div className="relative">
@@ -326,7 +386,9 @@ export default function SignupPage() {
                       }}
                       placeholder="Confirm your password"
                       className={`w-full max-w-full px-4 py-2 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
-                        errors.confirmPassword ? "border-red-500 focus:ring-red-500" : "border-black/10"
+                        errors.confirmPassword
+                          ? "border-red-500 focus:ring-red-500"
+                          : "border-black/10"
                       }`}
                       required
                     />
@@ -344,7 +406,9 @@ export default function SignupPage() {
                     </button>
                   </div>
                   {errors.confirmPassword && (
-                    <p className="mt-1 text-xs text-red-500">{errors.confirmPassword}</p>
+                    <p className="mt-1 text-xs text-red-500">
+                      {errors.confirmPassword}
+                    </p>
                   )}
                 </div>
 
@@ -352,7 +416,9 @@ export default function SignupPage() {
                   type="submit"
                   disabled={loadingOtp}
                   className={`w-full rounded-xl py-3 font-semibold text-white transition-colors ${
-                    loadingOtp ? "bg-green-800/60 cursor-not-allowed" : "bg-green-800 hover:bg-green-900"
+                    loadingOtp
+                      ? "bg-green-800/60 cursor-not-allowed"
+                      : "bg-green-800 hover:bg-green-900"
                   }`}
                 >
                   {loadingOtp ? "Sending OTP..." : "Sign Up"}
@@ -392,6 +458,16 @@ export default function SignupPage() {
             }}
           />
         )}
+
+        {/* ✅ NEW: success modal */}
+        <SignedUpSuccessfullyModal
+          open={showSignupSuccess}
+          onClose={() => {
+            setShowSignupSuccess(false);
+            navigate("/login");
+          }}
+          autoCloseMs={2000}
+        />
       </main>
 
       {/* ✅ footer (you can keep it if you want) */}

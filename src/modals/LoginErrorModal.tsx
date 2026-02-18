@@ -3,14 +3,12 @@ import { useEffect } from "react";
 type Props = {
   open: boolean;
   title?: string;
-  message: string;
   onClose: () => void;
 };
 
 export default function LoginErrorModal({
   open,
   title = "Login Failed",
-  message,
   onClose,
 }: Props) {
   useEffect(() => {
@@ -26,6 +24,8 @@ export default function LoginErrorModal({
 
   if (!open) return null;
 
+  const finalMessage = "Invalid credentials.";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center px-4"
@@ -33,10 +33,7 @@ export default function LoginErrorModal({
       aria-modal="true"
       aria-labelledby="login-error-title"
     >
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div className="relative w-full max-w-sm overflow-hidden bg-white border border-gray-200 shadow-xl rounded-2xl">
         <div className="p-5">
@@ -53,7 +50,7 @@ export default function LoginErrorModal({
                 {title}
               </h3>
               <p className="mt-1 text-sm text-gray-600 break-words">
-                {message}
+                {finalMessage}
               </p>
             </div>
           </div>
