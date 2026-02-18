@@ -25,7 +25,6 @@ export default function SignupPage() {
   const [loadingOtp, setLoadingOtp] = useState(false);
   const [loadingSignup, setLoadingSignup] = useState(false);
 
-  // ✅ NEW: success modal state
   const [showSignupSuccess, setShowSignupSuccess] = useState(false);
 
   const [errors, setErrors] = useState({
@@ -56,41 +55,33 @@ export default function SignupPage() {
 
     if (field === "firstName") {
       if (!value.trim()) message = "First Name is required.";
-      else if (value.length > MAX_NAME_LEN)
-        message = `Maximum ${MAX_NAME_LEN} characters.`;
-      else if (!nameRegex.test(value))
-        message = "Letters only. No numbers allowed.";
+      else if (value.length > MAX_NAME_LEN) message = `Maximum ${MAX_NAME_LEN} characters.`;
+      else if (!nameRegex.test(value)) message = "Letters only. No numbers allowed.";
     }
 
     if (field === "lastName") {
       if (!value.trim()) message = "Last Name is required.";
-      else if (value.length > MAX_NAME_LEN)
-        message = `Maximum ${MAX_NAME_LEN} characters.`;
-      else if (!nameRegex.test(value))
-        message = "Letters only. No numbers allowed.";
+      else if (value.length > MAX_NAME_LEN) message = `Maximum ${MAX_NAME_LEN} characters.`;
+      else if (!nameRegex.test(value)) message = "Letters only. No numbers allowed.";
     }
 
     if (field === "email") {
       const v = normalizeEmail(value);
       if (!v) message = "Email is required.";
-      else if (v.length > MAX_EMAIL_LEN)
-        message = `Maximum ${MAX_EMAIL_LEN} characters.`;
-      else if (!emailRegex.test(v))
-        message = "Email must be a valid address ending in .com";
+      else if (v.length > MAX_EMAIL_LEN) message = `Maximum ${MAX_EMAIL_LEN} characters.`;
+      else if (!emailRegex.test(v)) message = "Email must be a valid address ending in .com";
     }
 
     if (field === "password") {
       if (!value) message = "Password is required.";
       else if (!passwordRegex.test(value)) {
-        message =
-          "8–16 chars, uppercase, lowercase, number, special char (no spaces).";
+        message = "8–16 chars, uppercase, lowercase, number, special char (no spaces).";
       }
     }
 
     if (field === "confirmPassword") {
       if (!value) message = "Confirm your password.";
-      else if (value !== (ctx?.password ?? ""))
-        message = "Passwords do not match.";
+      else if (value !== (ctx?.password ?? "")) message = "Passwords do not match.";
     }
 
     return message;
@@ -109,13 +100,10 @@ export default function SignupPage() {
       lastName: validateOne("lastName", lastName),
       email: validateOne("email", email),
       password: validateOne("password", password),
-      confirmPassword: validateOne("confirmPassword", confirmPassword, {
-        password,
-      }),
+      confirmPassword: validateOne("confirmPassword", confirmPassword, { password }),
     };
 
     setErrors(nextErrors);
-
     if (Object.values(nextErrors).some((m) => m)) return;
 
     try {
@@ -153,16 +141,10 @@ export default function SignupPage() {
         code: otp,
       });
 
-      // ✅ Instead of alert + navigate immediately:
-      // 1) close OTP modal
-      // 2) show success modal
       setShowOtpModal(false);
       setShowSignupSuccess(true);
-
-      // Optional: clear OTP for next time
       setOtp("");
 
-      // Keep the backend message if you still want it in console
       console.log(res?.message || "Signup successful");
     } catch (error: any) {
       alert(error?.message || "Signup failed. OTP might be wrong/expired.");
@@ -190,14 +172,12 @@ export default function SignupPage() {
         </div>
       </header>
 
-      {/* ✅ HALF-PAGE GREEN BG */}
       <main className="relative flex-1">
         <div className="pointer-events-none absolute inset-0">
           <div className="h-full w-1/2 bg-[#F0FDF4]" />
         </div>
 
         <div className="relative flex flex-col w-full max-w-6xl mx-auto lg:flex-row lg:min-h-[calc(100vh-80px)]">
-          {/* LEFT */}
           <div className="hidden lg:flex lg:w-1/2">
             <div className="px-10 py-12 xl:px-12">
               <div className="max-w-md">
@@ -212,7 +192,6 @@ export default function SignupPage() {
             </div>
           </div>
 
-          {/* RIGHT */}
           <div className="flex items-start justify-center flex-1 w-full px-4 py-10 sm:px-6 sm:py-12 bg-white">
             <div className="w-full max-w-md">
               <h2 className="text-2xl sm:text-[25px] font-bold text-black mb-2">
@@ -222,17 +201,10 @@ export default function SignupPage() {
                 Please enter your details to create an account.
               </p>
 
-              <form
-                noValidate
-                onSubmit={handleSubmit}
-                className="flex flex-col gap-4"
-              >
+              <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="flex flex-col min-w-0 gap-1">
-                    <label
-                      htmlFor="firstName"
-                      className="text-sm font-medium text-black"
-                    >
+                    <label htmlFor="firstName" className="text-sm font-medium text-black">
                       First Name
                     </label>
                     <input
@@ -246,24 +218,15 @@ export default function SignupPage() {
                       }}
                       placeholder="First name"
                       className={`w-full max-w-full px-4 py-2 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
-                        errors.firstName
-                          ? "border-red-500 focus:ring-red-500"
-                          : "border-black/10"
+                        errors.firstName ? "border-red-500 focus:ring-red-500" : "border-black/10"
                       }`}
                       required
                     />
-                    {errors.firstName && (
-                      <p className="mt-1 text-xs text-red-500">
-                        {errors.firstName}
-                      </p>
-                    )}
+                    {errors.firstName && <p className="mt-1 text-xs text-red-500">{errors.firstName}</p>}
                   </div>
 
                   <div className="flex flex-col min-w-0 gap-1">
-                    <label
-                      htmlFor="lastName"
-                      className="text-sm font-medium text-black"
-                    >
+                    <label htmlFor="lastName" className="text-sm font-medium text-black">
                       Last Name
                     </label>
                     <input
@@ -277,17 +240,11 @@ export default function SignupPage() {
                       }}
                       placeholder="Last name"
                       className={`w-full max-w-full px-4 py-2 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
-                        errors.lastName
-                          ? "border-red-500 focus:ring-red-500"
-                          : "border-black/10"
+                        errors.lastName ? "border-red-500 focus:ring-red-500" : "border-black/10"
                       }`}
                       required
                     />
-                    {errors.lastName && (
-                      <p className="mt-1 text-xs text-red-500">
-                        {errors.lastName}
-                      </p>
-                    )}
+                    {errors.lastName && <p className="mt-1 text-xs text-red-500">{errors.lastName}</p>}
                   </div>
                 </div>
 
@@ -309,74 +266,62 @@ export default function SignupPage() {
                     }}
                     placeholder="Enter your email"
                     className={`w-full max-w-full px-4 py-2 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
-                      errors.email
-                        ? "border-red-500 focus:ring-red-500"
-                        : "border-black/10"
+                      errors.email ? "border-red-500 focus:ring-red-500" : "border-black/10"
                     }`}
                     required
                   />
-                  {errors.email && (
-                    <p className="mt-1 text-xs text-red-500">{errors.email}</p>
-                  )}
+                  {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
                 </div>
 
                 <div className="flex flex-col min-w-0 gap-1">
-                  <label
-                    htmlFor="password"
-                    className="text-sm font-medium text-black"
-                  >
+                  <label htmlFor="password" className="text-sm font-medium text-black">
                     Password
                   </label>
                   <div className="relative">
                     <input
                       id="password"
                       type={showPassword ? "text" : "password"}
+                      autoComplete="new-password"
                       maxLength={16}
                       value={password}
                       onChange={(e) => {
                         const val = e.target.value.replace(/\s/g, "");
                         setPassword(val);
                         validateAndSetField("password", val);
-                        if (confirmPassword)
-                          validateAndSetField("confirmPassword", confirmPassword);
+                        if (confirmPassword) validateAndSetField("confirmPassword", confirmPassword);
                       }}
                       placeholder="Enter your password"
-                      className={`w-full max-w-full px-4 py-2 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
-                        errors.password
-                          ? "border-red-500 focus:ring-red-500"
-                          : "border-black/10"
+                      className={`w-full max-w-full px-4 py-2 pr-12 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
+                        errors.password ? "border-red-500 focus:ring-red-500" : "border-black/10"
                       }`}
                       required
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
+                      onClick={() => setShowPassword((p) => !p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 flex items-center justify-center bg-transparent p-0 border-0 focus:outline-none"
                       aria-label="Toggle password visibility"
                     >
                       <img
                         src={showPassword ? EyeOffIcon : EyeIcon}
                         alt="Toggle password"
-                        className="object-contain w-full h-full"
+                        className="object-contain w-5 h-5"
+                        draggable={false}
                       />
                     </button>
                   </div>
-                  {errors.password && (
-                    <p className="mt-1 text-xs text-red-500">{errors.password}</p>
-                  )}
+                  {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
                 </div>
 
                 <div className="flex flex-col min-w-0 gap-1">
-                  <label
-                    htmlFor="confirmPassword"
-                    className="text-sm font-medium text-black"
-                  >
+                  <label htmlFor="confirmPassword" className="text-sm font-medium text-black">
                     Confirm Password
                   </label>
                   <div className="relative">
                     <input
                       id="confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
+                      autoComplete="new-password"
                       maxLength={16}
                       value={confirmPassword}
                       onChange={(e) => {
@@ -385,30 +330,27 @@ export default function SignupPage() {
                         validateAndSetField("confirmPassword", val);
                       }}
                       placeholder="Confirm your password"
-                      className={`w-full max-w-full px-4 py-2 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
-                        errors.confirmPassword
-                          ? "border-red-500 focus:ring-red-500"
-                          : "border-black/10"
+                      className={`w-full max-w-full px-4 py-2 pr-12 border rounded-lg placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent ${
+                        errors.confirmPassword ? "border-red-500 focus:ring-red-500" : "border-black/10"
                       }`}
                       required
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
+                      onClick={() => setShowConfirmPassword((p) => !p)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 flex items-center justify-center bg-transparent p-0 border-0 focus:outline-none"
                       aria-label="Toggle confirm password visibility"
                     >
                       <img
                         src={showConfirmPassword ? EyeOffIcon : EyeIcon}
                         alt="Toggle confirm password"
-                        className="object-contain w-full h-full"
+                        className="object-contain w-5 h-5"
+                        draggable={false}
                       />
                     </button>
                   </div>
                   {errors.confirmPassword && (
-                    <p className="mt-1 text-xs text-red-500">
-                      {errors.confirmPassword}
-                    </p>
+                    <p className="mt-1 text-xs text-red-500">{errors.confirmPassword}</p>
                   )}
                 </div>
 
@@ -416,9 +358,7 @@ export default function SignupPage() {
                   type="submit"
                   disabled={loadingOtp}
                   className={`w-full rounded-xl py-3 font-semibold text-white transition-colors ${
-                    loadingOtp
-                      ? "bg-green-800/60 cursor-not-allowed"
-                      : "bg-green-800 hover:bg-green-900"
+                    loadingOtp ? "bg-green-800/60 cursor-not-allowed" : "bg-green-800 hover:bg-green-900"
                   }`}
                 >
                   {loadingOtp ? "Sending OTP..." : "Sign Up"}
@@ -459,7 +399,6 @@ export default function SignupPage() {
           />
         )}
 
-        {/* ✅ NEW: success modal */}
         <SignedUpSuccessfullyModal
           open={showSignupSuccess}
           onClose={() => {
@@ -470,7 +409,6 @@ export default function SignupPage() {
         />
       </main>
 
-      {/* ✅ footer (you can keep it if you want) */}
       <footer className="flex items-center justify-center w-full h-20 text-center bg-white border-t border-gray-200">
         <p className="px-4 text-xs text-black break-words sm:text-sm">
           © 2026 ScholarCheck. All rights reserved.

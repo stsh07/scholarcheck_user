@@ -1,3 +1,4 @@
+// src/pages/LoginPage.tsx
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
@@ -30,7 +31,6 @@ export default function LoginPage() {
   );
   const [approvalLoading, setApprovalLoading] = useState(false);
 
-  // ✅ success modal (styled banner)
   const [successOpen, setSuccessOpen] = useState(false);
 
   const challengeIdRef = useRef<string>("");
@@ -62,7 +62,6 @@ export default function LoginPage() {
           setApprovalLoading(false);
           setApprovalOpen(false);
 
-          // ✅ show success banner then go home
           setSuccessOpen(true);
           window.setTimeout(() => {
             setSuccessOpen(false);
@@ -176,15 +175,12 @@ export default function LoginPage() {
           <div className="hidden lg:flex lg:w-1/2">
             <div className="px-10 py-12 xl:px-12">
               <div className="max-w-md">
-                <h2 className="mb-2 text-xl font-bold text-black">
-                  Welcome Back to
-                </h2>
+                <h2 className="mb-2 text-xl font-bold text-black">Welcome Back to</h2>
                 <p className="text-4xl font-bold leading-tight text-green-800">
                   ScholarCheck
                 </p>
                 <p className="mt-4 text-sm text-gray-700">
-                  Log in to access your account and continue your scholarship
-                  journey.
+                  Log in to access your account and continue your scholarship journey.
                 </p>
               </div>
             </div>
@@ -234,22 +230,25 @@ export default function LoginPage() {
                     <input
                       id="password"
                       type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your password"
-                      className="w-full max-w-full px-4 py-3 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                      className="w-full max-w-full px-4 py-3 pr-12 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                       required
                     />
+
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute w-6 h-6 -translate-y-1/2 right-3 top-1/2"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 flex items-center justify-center bg-transparent p-0 border-0 focus:outline-none"
                       aria-label="Toggle password visibility"
                     >
                       <img
                         src={showPassword ? EyeOffIcon : EyeIcon}
                         alt="Toggle password"
-                        className="object-contain w-full h-full"
+                        className="object-contain w-5 h-5"
+                        draggable={false}
                       />
                     </button>
                   </div>
@@ -280,9 +279,7 @@ export default function LoginPage() {
       </main>
 
       <footer className="flex items-center justify-center w-full h-20 text-center bg-white border-t border-gray-200">
-        <p className="px-4 text-xs text-black sm:text-sm">
-          © 2026 ScholarCheck. All rights reserved.
-        </p>
+        <p className="px-4 text-xs text-black sm:text-sm">© 2026 ScholarCheck. All rights reserved.</p>
       </footer>
 
       <LoginApproval
@@ -296,7 +293,6 @@ export default function LoginPage() {
 
       <LoginErrorModal open={errorOpen} onClose={() => setErrorOpen(false)} />
 
-      {/* ✅ Styled success */}
       <LoggedInSuccessfullyModal
         open={successOpen}
         onClose={() => {
