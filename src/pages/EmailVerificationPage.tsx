@@ -1,7 +1,101 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
 import { requestResetCode, verifyResetCode } from "../api/auth";
+
+// ✅ Same rate limit rules
+const RATE_VERSION = "v1";
+const MAX_PER_HOUR = 3;
+const MAX_PER_DAY = 5;
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+type RateState = {
+  timestamps: number[]; // epoch ms
+};
+
+function nowMs() {
+  return Date.now();
+}
+
+function safeJsonParse<T>(raw: string | null, fallback: T): T {
+  try {
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function formatRemaining(ms: number) {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+
+  if (min <= 0) return `${sec}s`;
+  if (sec === 0) return `${min}m`;
+  return `${min}m ${sec}s`;
+}
+
+function pruneTimestamps(timestamps: number[]) {
+  const now = nowMs();
+  const hourAgo = now - ONE_HOUR_MS;
+  const dayAgo = now - ONE_DAY_MS;
+
+  const inLastHour = timestamps.filter((t) => t > hourAgo);
+  const inLastDay = timestamps.filter((t) => t > dayAgo);
+
+  return { inLastHour, inLastDay, kept: inLastDay };
+}
+
+function getResetRateKey(email: string) {
+  return `scholarcheck_user_forgotpass_rate_${RATE_VERSION}:${email || "unknown"}`;
+}
+
+function readRateState(key: string): RateState {
+  return safeJsonParse<RateState>(localStorage.getItem(key), { timestamps: [] });
+}
+
+function writeRateState(key: string, state: RateState) {
+  localStorage.setItem(key, JSON.stringify(state));
+}
+
+function checkResetLimit(key: string): {
+  allowed: boolean;
+  reason?: "HOUR" | "DAY";
+  retryAfterMs?: number;
+} {
+  const st = readRateState(key);
+  const { inLastHour, inLastDay } = pruneTimestamps(st.timestamps);
+
+  if (inLastDay.length >= MAX_PER_DAY) {
+    const oldest = inLastDay[inLastDay.length - MAX_PER_DAY];
+    const retryAfterMs = oldest + ONE_DAY_MS - nowMs();
+    return { allowed: false, reason: "DAY", retryAfterMs };
+  }
+
+  if (inLastHour.length >= MAX_PER_HOUR) {
+    const oldest = inLastHour[inLastHour.length - MAX_PER_HOUR];
+    const retryAfterMs = oldest + ONE_HOUR_MS - nowMs();
+    return { allowed: false, reason: "HOUR", retryAfterMs };
+  }
+
+  return { allowed: true };
+}
+
+function commitResetAttempt(key: string) {
+  const st = readRateState(key);
+  const next = pruneTimestamps([...st.timestamps, nowMs()]).kept;
+  writeRateState(key, { timestamps: next });
+}
+
+function lockMessage(reason: "HOUR" | "DAY", retryAfterMs: number) {
+  const remaining = formatRemaining(retryAfterMs);
+  if (reason === "HOUR") {
+    return `Too many password reset requests. Please try again after 1 hour. (Time remaining: ${remaining})`;
+  }
+  return `Too many password reset requests today. Please try again later. (Time remaining: ${remaining})`;
+}
 
 function useQuery() {
   const { search } = useLocation();
@@ -23,6 +117,29 @@ export default function EmailVerificationPage() {
   const inputRefs = Array.from({ length: DIGITS }, () =>
     useRef<HTMLInputElement>(null)
   );
+
+  const rateKey = useMemo(() => getResetRateKey(email), [email]);
+
+  // Optional: keep lock message updated while user is on this page
+  useEffect(() => {
+    if (!email) return;
+
+    const tick = () => {
+      const gate = checkResetLimit(rateKey);
+      if (!gate.allowed && gate.reason && typeof gate.retryAfterMs === "number") {
+        if (
+          error.startsWith("Too many password reset requests") ||
+          error.startsWith("Too many password reset requests today")
+        ) {
+          setError(lockMessage(gate.reason, gate.retryAfterMs));
+        }
+      }
+    };
+
+    const t = window.setInterval(tick, 1000);
+    return () => window.clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rateKey, email]);
 
   const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -78,8 +195,18 @@ export default function EmailVerificationPage() {
       return;
     }
 
+    // ✅ rate limit check (Resend is also counted)
+    const gate = checkResetLimit(rateKey);
+    if (!gate.allowed && gate.reason && typeof gate.retryAfterMs === "number") {
+      setError(lockMessage(gate.reason, gate.retryAfterMs));
+      return;
+    }
+
     setError("");
     setResending(true);
+
+    // ✅ count this as an attempt
+    commitResetAttempt(rateKey);
 
     try {
       await requestResetCode(email);

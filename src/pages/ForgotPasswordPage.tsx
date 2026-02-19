@@ -1,7 +1,107 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
 import { requestResetCode } from "../api/auth";
+
+// ✅ Rate limit config
+const RATE_VERSION = "v1";
+const MAX_PER_HOUR = 3;
+const MAX_PER_DAY = 5;
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+type RateState = {
+  timestamps: number[]; // epoch ms
+};
+
+function nowMs() {
+  return Date.now();
+}
+
+function safeJsonParse<T>(raw: string | null, fallback: T): T {
+  try {
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function formatRemaining(ms: number) {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+
+  if (min <= 0) return `${sec}s`;
+  if (sec === 0) return `${min}m`;
+  return `${min}m ${sec}s`;
+}
+
+function pruneTimestamps(timestamps: number[]) {
+  const now = nowMs();
+  const hourAgo = now - ONE_HOUR_MS;
+  const dayAgo = now - ONE_DAY_MS;
+
+  const inLastHour = timestamps.filter((t) => t > hourAgo);
+  const inLastDay = timestamps.filter((t) => t > dayAgo);
+
+  // keep only last 24h to avoid unbounded growth
+  return { inLastHour, inLastDay, kept: inLastDay };
+}
+
+function getResetRateKey(email: string) {
+  // per email per browser/device
+  return `scholarcheck_user_forgotpass_rate_${RATE_VERSION}:${email || "unknown"}`;
+}
+
+function readRateState(key: string): RateState {
+  return safeJsonParse<RateState>(localStorage.getItem(key), { timestamps: [] });
+}
+
+function writeRateState(key: string, state: RateState) {
+  localStorage.setItem(key, JSON.stringify(state));
+}
+
+function checkResetLimit(key: string): {
+  allowed: boolean;
+  reason?: "HOUR" | "DAY";
+  retryAfterMs?: number;
+} {
+  const st = readRateState(key);
+  const { inLastHour, inLastDay } = pruneTimestamps(st.timestamps);
+
+  // ✅ daily limit first (stronger cap)
+  if (inLastDay.length >= MAX_PER_DAY) {
+    // next allowed after the oldest of the last MAX_PER_DAY expires (24h window)
+    const oldest = inLastDay[inLastDay.length - MAX_PER_DAY];
+    const retryAfterMs = oldest + ONE_DAY_MS - nowMs();
+    return { allowed: false, reason: "DAY", retryAfterMs };
+  }
+
+  // ✅ hourly limit
+  if (inLastHour.length >= MAX_PER_HOUR) {
+    const oldest = inLastHour[inLastHour.length - MAX_PER_HOUR];
+    const retryAfterMs = oldest + ONE_HOUR_MS - nowMs();
+    return { allowed: false, reason: "HOUR", retryAfterMs };
+  }
+
+  return { allowed: true };
+}
+
+function commitResetAttempt(key: string) {
+  const st = readRateState(key);
+  const next = pruneTimestamps([...st.timestamps, nowMs()]).kept;
+  writeRateState(key, { timestamps: next });
+}
+
+function lockMessage(reason: "HOUR" | "DAY", retryAfterMs: number) {
+  const remaining = formatRemaining(retryAfterMs);
+  if (reason === "HOUR") {
+    // user asked: wait 1 hour for 4th attempt within hour
+    return `Too many password reset requests. Please try again after 1 hour. (Time remaining: ${remaining})`;
+  }
+  return `Too many password reset requests today. Please try again later. (Time remaining: ${remaining})`;
+}
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -13,6 +113,36 @@ export default function ForgotPasswordPage() {
 
   const MAX_EMAIL_LEN = 50;
   const emailComOnlyRegex = /^[^\s@]+@[A-Z0-9-]+(\.[A-Z0-9-]+)*\.com$/i;
+
+  const cleanedEmail = useMemo(
+    () => email.trim().replace(/\s/g, "").toLowerCase(),
+    [email]
+  );
+
+  const rateKey = useMemo(() => getResetRateKey(cleanedEmail), [cleanedEmail]);
+
+  // Optional: keep lock message fresh while locked (so remaining time updates)
+  useEffect(() => {
+    if (!cleanedEmail) return;
+
+    const tick = () => {
+      const gate = checkResetLimit(rateKey);
+      if (!gate.allowed && gate.reason && typeof gate.retryAfterMs === "number") {
+        // Only update if user is currently seeing a lock error or has an empty error
+        // (avoid overwriting validation errors while typing)
+        if (
+          error.startsWith("Too many password reset requests") ||
+          error.startsWith("Too many password reset requests today")
+        ) {
+          setError(lockMessage(gate.reason, gate.retryAfterMs));
+        }
+      }
+    };
+
+    const t = window.setInterval(tick, 1000);
+    return () => window.clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rateKey, cleanedEmail]);
 
   const validateEmail = (raw: string) => {
     const trimmed = raw.trim().replace(/\s/g, "").toLowerCase();
@@ -26,16 +156,27 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const cleaned = email.trim().replace(/\s/g, "").toLowerCase();
+    const cleaned = cleanedEmail;
     const msg = validateEmail(cleaned);
     if (msg) {
       setError(msg);
       return;
     }
 
+    // ✅ rate limit check (3/hour, 5/day)
+    const gate = checkResetLimit(rateKey);
+    if (!gate.allowed && gate.reason && typeof gate.retryAfterMs === "number") {
+      setServerMsg("");
+      setError(lockMessage(gate.reason, gate.retryAfterMs));
+      return;
+    }
+
     setError("");
     setServerMsg("");
     setLoading(true);
+
+    // ✅ count this as an attempt (valid email submission)
+    commitResetAttempt(rateKey);
 
     try {
       const res = await requestResetCode(cleaned);
