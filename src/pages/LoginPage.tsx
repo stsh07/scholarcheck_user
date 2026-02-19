@@ -1,3 +1,4 @@
+// src/pages/LoginPage.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
@@ -65,6 +66,19 @@ export default function LoginPage() {
 
   const normalizeEmail = (v: string) => v.trim().toLowerCase();
 
+  // ✅ Guard: If already logged in, never allow staying on /login (even via Back)
+  useEffect(() => {
+    const token = localStorage.getItem("scholarcheck_accessToken");
+    const rawUser = localStorage.getItem("scholarcheck_user");
+
+    // basic check (you can make this stricter if you want)
+    const isLoggedIn = !!token && !!rawUser;
+
+    if (isLoggedIn) {
+      navigate("/home", { replace: true });
+    }
+  }, [navigate]);
+
   // Login limiter helpers
   const limitKey = useMemo(() => {
     const normalized = normalizeEmail(email);
@@ -79,7 +93,8 @@ export default function LoginPage() {
       }
       const parsed = JSON.parse(raw) as Partial<LoginLimitState>;
       return {
-        failedAttempts: typeof parsed.failedAttempts === "number" ? parsed.failedAttempts : 0,
+        failedAttempts:
+          typeof parsed.failedAttempts === "number" ? parsed.failedAttempts : 0,
         lockUntil: typeof parsed.lockUntil === "number" ? parsed.lockUntil : 0,
         updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : nowMs(),
       };
@@ -92,6 +107,7 @@ export default function LoginPage() {
     try {
       localStorage.setItem(limitKey, JSON.stringify(next));
     } catch {
+      // ignore
     }
   };
 
@@ -157,6 +173,7 @@ export default function LoginPage() {
           setSuccessOpen(true);
           window.setTimeout(() => {
             setSuccessOpen(false);
+            // ✅ replace removes /login from history entry
             navigate("/home", { replace: true });
           }, 1600);
 
@@ -173,6 +190,7 @@ export default function LoginPage() {
           );
         }
       } catch (e: any) {
+        // keep polling
       }
     };
 
@@ -239,9 +257,8 @@ export default function LoginPage() {
       const prev = clearLockIfExpired(readLimitState());
       const nextFailed = prev.failedAttempts + 1;
 
-      // RULE:
-      // Attempts 1..5 → show ONLY "Invalid credentials."
-      // Attempt 6 → lock 2 minutes + show "Too many login attempts..."
+      // Attempts 1..5 -> "Invalid credentials."
+      // Attempt 6 -> lock 2 minutes + "Too many login attempts..."
       if (nextFailed > MAX_FAILED_ATTEMPTS) {
         writeLimitState({
           failedAttempts: nextFailed,
@@ -257,7 +274,6 @@ export default function LoginPage() {
           updatedAt: nowMs(),
         });
 
-        // Always the same message (no attempt count)
         openError("Invalid credentials.");
       }
     } finally {

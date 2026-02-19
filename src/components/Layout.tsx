@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+// src/components/Layout.tsx
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, FileText, MessageCircle, LogOut } from "lucide-react";
 import Logo from "../img/PRIMARY.png";
@@ -29,6 +30,12 @@ type StoredUser = {
   email?: string;
   role?: string;
 };
+
+function isLoggedIn() {
+  const token = localStorage.getItem("scholarcheck_accessToken");
+  const user = localStorage.getItem("scholarcheck_user");
+  return !!token && !!user;
+}
 
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
@@ -70,6 +77,41 @@ export function Layout({ children }: LayoutProps) {
     "New scholarship opportunity available",
   ];
 
+  /**
+   * ✅ Back Button Lock (while logged in)
+   * - Prevent going back to /login /forgot /reset /etc
+   * - If user hits Back, force route to /home
+   */
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+
+    // Add a guard history entry so "Back" triggers popstate
+    const pushGuard = () => {
+      window.history.pushState({ __sc_lock: true }, "", window.location.href);
+    };
+
+    pushGuard();
+
+    const onPopState = () => {
+      // While logged-in, never allow going back out of the app flow
+      // Force to home
+      navigate("/home", { replace: true });
+
+      // Close any dropdown/modals to avoid weird UI state
+      setProfileOpen(false);
+      setNotificationOpen(false);
+      setLogoutOpen(false);
+
+      // Re-arm the guard for the next back press
+      window.setTimeout(() => {
+        pushGuard();
+      }, 0);
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [navigate]);
+
   // ===== Confirm Logout =====
   const handleConfirmLogout = () => {
     // Clear session
@@ -79,7 +121,7 @@ export function Layout({ children }: LayoutProps) {
 
     setLogoutOpen(false);
 
-    // SPA navigation (no reload, no weird localhost flash)
+    // ✅ After logout, route guards will allow /login
     navigate("/login", { replace: true });
   };
 
