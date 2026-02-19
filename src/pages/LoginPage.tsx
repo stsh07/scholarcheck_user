@@ -1,5 +1,4 @@
-// src/pages/LoginPage.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../img/PRIMARY.png";
 import EyeIcon from "../img/Eye.png";
@@ -13,6 +12,34 @@ import { loginComplete, loginStart, loginStatus } from "../api/auth";
 
 type LoginStatus = "PENDING" | "APPROVED" | "DENIED" | "EXPIRED";
 
+const LOGIN_LIMIT_VERSION = "v1";
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCK_MS = 2 * 60 * 1000;
+
+type LoginLimitState = {
+  failedAttempts: number;
+  lockUntil: number;
+  updatedAt: number;
+};
+
+function nowMs() {
+  return Date.now();
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function formatRemaining(ms: number) {
+  const totalSec = Math.ceil(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+
+  if (min <= 0) return `${sec}s`;
+  if (sec === 0) return `${min}m`;
+  return `${min}m ${sec}s`;
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
 
@@ -23,6 +50,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const [errorOpen, setErrorOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<LoginStatus>("PENDING");
@@ -37,6 +65,70 @@ export default function LoginPage() {
 
   const normalizeEmail = (v: string) => v.trim().toLowerCase();
 
+  // Login limiter helpers
+  const limitKey = useMemo(() => {
+    const normalized = normalizeEmail(email);
+    return `scholarcheck_login_limit_${LOGIN_LIMIT_VERSION}:${normalized || "unknown"}`;
+  }, [email]);
+
+  const readLimitState = (): LoginLimitState => {
+    try {
+      const raw = localStorage.getItem(limitKey);
+      if (!raw) {
+        return { failedAttempts: 0, lockUntil: 0, updatedAt: nowMs() };
+      }
+      const parsed = JSON.parse(raw) as Partial<LoginLimitState>;
+      return {
+        failedAttempts: typeof parsed.failedAttempts === "number" ? parsed.failedAttempts : 0,
+        lockUntil: typeof parsed.lockUntil === "number" ? parsed.lockUntil : 0,
+        updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : nowMs(),
+      };
+    } catch {
+      return { failedAttempts: 0, lockUntil: 0, updatedAt: nowMs() };
+    }
+  };
+
+  const writeLimitState = (next: LoginLimitState) => {
+    try {
+      localStorage.setItem(limitKey, JSON.stringify(next));
+    } catch {
+    }
+  };
+
+  const isLocked = (state: LoginLimitState) => state.lockUntil > nowMs();
+
+  const clearLockIfExpired = (state: LoginLimitState) => {
+    if (state.lockUntil && state.lockUntil <= nowMs()) {
+      const cleared: LoginLimitState = {
+        failedAttempts: 0,
+        lockUntil: 0,
+        updatedAt: nowMs(),
+      };
+      writeLimitState(cleared);
+      return cleared;
+    }
+    return state;
+  };
+
+  // For disabling the button + showing countdown on button label
+  const [lockRemainingMs, setLockRemainingMs] = useState<number>(0);
+
+  useEffect(() => {
+    const tick = () => {
+      const s = clearLockIfExpired(readLimitState());
+      if (isLocked(s)) {
+        setLockRemainingMs(clamp(s.lockUntil - nowMs(), 0, LOCK_MS));
+      } else {
+        setLockRemainingMs(0);
+      }
+    };
+
+    tick();
+    const t = window.setInterval(tick, 250);
+    return () => window.clearInterval(t);
+  }, [limitKey]);
+
+  // ---------- existing polling for approval ----------
   useEffect(() => {
     if (!approvalOpen) return;
     if (!challengeIdRef.current) return;
@@ -81,7 +173,6 @@ export default function LoginPage() {
           );
         }
       } catch (e: any) {
-        // keep polling
       }
     };
 
@@ -94,11 +185,34 @@ export default function LoginPage() {
     };
   }, [approvalOpen, navigate]);
 
+  const openError = (message?: string) => {
+    setErrorMessage(message);
+    setErrorOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorOpen(false);
+    setErrorMessage(undefined);
 
     const normalized = normalizeEmail(email);
+
+    if (!normalized || !password) {
+      openError("Please enter your email and password to continue.");
+      return;
+    }
+
+    // check lock before attempting
+    const stateBefore = clearLockIfExpired(readLimitState());
+    if (isLocked(stateBefore)) {
+      const remaining = stateBefore.lockUntil - nowMs();
+      openError(
+        `Too many login attempts. Please try again after 2 minutes. (Time remaining: ${formatRemaining(
+          remaining
+        )})`
+      );
+      return;
+    }
 
     try {
       setLoading(true);
@@ -108,13 +222,44 @@ export default function LoginPage() {
         password,
       });
 
+      // successful loginStart resets attempts (approval flow begins)
+      writeLimitState({
+        failedAttempts: 0,
+        lockUntil: 0,
+        updatedAt: nowMs(),
+      });
+
       challengeIdRef.current = start.challengeId;
 
       setApprovalStatus("PENDING");
       setApprovalMessage(start.message);
       setApprovalOpen(true);
     } catch (err: any) {
-      setErrorOpen(true);
+      // count failed attempt
+      const prev = clearLockIfExpired(readLimitState());
+      const nextFailed = prev.failedAttempts + 1;
+
+      // RULE:
+      // Attempts 1..5 → show ONLY "Invalid credentials."
+      // Attempt 6 → lock 2 minutes + show "Too many login attempts..."
+      if (nextFailed > MAX_FAILED_ATTEMPTS) {
+        writeLimitState({
+          failedAttempts: nextFailed,
+          lockUntil: nowMs() + LOCK_MS,
+          updatedAt: nowMs(),
+        });
+
+        openError("Too many login attempts. Please try again after 2 minutes.");
+      } else {
+        writeLimitState({
+          failedAttempts: nextFailed,
+          lockUntil: 0,
+          updatedAt: nowMs(),
+        });
+
+        // Always the same message (no attempt count)
+        openError("Invalid credentials.");
+      }
     } finally {
       setLoading(false);
     }
@@ -131,6 +276,18 @@ export default function LoginPage() {
     const normalized = normalizeEmail(email);
     if (!normalized || !password) return;
 
+    // if locked, block resend too (consistent)
+    const st = clearLockIfExpired(readLimitState());
+    if (isLocked(st)) {
+      const remaining = st.lockUntil - nowMs();
+      openError(
+        `Too many login attempts. Please try again after 2 minutes. (Time remaining: ${formatRemaining(
+          remaining
+        )})`
+      );
+      return;
+    }
+
     try {
       setApprovalLoading(true);
       const start = await loginStart({
@@ -138,16 +295,46 @@ export default function LoginPage() {
         password,
       });
 
+      // successful loginStart resets attempts
+      writeLimitState({
+        failedAttempts: 0,
+        lockUntil: 0,
+        updatedAt: nowMs(),
+      });
+
       challengeIdRef.current = start.challengeId;
       setApprovalStatus("PENDING");
       setApprovalMessage(start.message);
     } catch (err: any) {
+      const prev = clearLockIfExpired(readLimitState());
+      const nextFailed = prev.failedAttempts + 1;
+
+      if (nextFailed > MAX_FAILED_ATTEMPTS) {
+        writeLimitState({
+          failedAttempts: nextFailed,
+          lockUntil: nowMs() + LOCK_MS,
+          updatedAt: nowMs(),
+        });
+
+        openError("Too many login attempts. Please try again after 2 minutes.");
+      } else {
+        writeLimitState({
+          failedAttempts: nextFailed,
+          lockUntil: 0,
+          updatedAt: nowMs(),
+        });
+
+        openError("Invalid credentials.");
+      }
+
       setApprovalMessage(err?.message || "Failed to resend approval email.");
       setApprovalStatus("EXPIRED");
     } finally {
       setApprovalLoading(false);
     }
   };
+
+  const isSubmitDisabled = loading || lockRemainingMs > 0;
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-white flex flex-col">
@@ -256,14 +443,18 @@ export default function LoginPage() {
 
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={isSubmitDisabled}
                   className={`w-full rounded-xl py-3 font-semibold text-white transition-colors ${
-                    loading
+                    isSubmitDisabled
                       ? "bg-green-800/60 cursor-not-allowed"
                       : "bg-green-800 hover:bg-green-900"
                   }`}
                 >
-                  {loading ? "Logging in..." : "Log In"}
+                  {loading
+                    ? "Logging in..."
+                    : lockRemainingMs > 0
+                    ? `Try again in ${formatRemaining(lockRemainingMs)}`
+                    : "Log In"}
                 </button>
               </form>
 
@@ -279,7 +470,9 @@ export default function LoginPage() {
       </main>
 
       <footer className="flex items-center justify-center w-full h-20 text-center bg-white border-t border-gray-200">
-        <p className="px-4 text-xs text-black sm:text-sm">© 2026 ScholarCheck. All rights reserved.</p>
+        <p className="px-4 text-xs text-black sm:text-sm">
+          © 2026 ScholarCheck. All rights reserved.
+        </p>
       </footer>
 
       <LoginApproval
@@ -291,7 +484,11 @@ export default function LoginPage() {
         onResend={handleResendApproval}
       />
 
-      <LoginErrorModal open={errorOpen} onClose={() => setErrorOpen(false)} />
+      <LoginErrorModal
+        open={errorOpen}
+        message={errorMessage}
+        onClose={() => setErrorOpen(false)}
+      />
 
       <LoggedInSuccessfullyModal
         open={successOpen}

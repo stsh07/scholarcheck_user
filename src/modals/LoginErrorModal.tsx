@@ -1,14 +1,17 @@
+// src/modals/LoginErrorModal.tsx
 import { useEffect } from "react";
 
 type Props = {
   open: boolean;
   title?: string;
+  message?: string; // ✅ added (optional)
   onClose: () => void;
 };
 
 export default function LoginErrorModal({
   open,
   title = "Login Failed",
+  message,
   onClose,
 }: Props) {
   useEffect(() => {
@@ -24,7 +27,8 @@ export default function LoginErrorModal({
 
   if (!open) return null;
 
-  const finalMessage = "Invalid credentials.";
+  // ✅ keep old behavior as default
+  const finalMessage = message?.trim() ? message : "Invalid credentials.";
 
   return (
     <div
