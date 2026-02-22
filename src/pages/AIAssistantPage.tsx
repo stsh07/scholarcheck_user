@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+// src/pages/AIAssistantPage.tsx
+import { useEffect, useRef, useState } from "react";
 import { Layout } from "../components/Layout";
 import SendImg from "../img/Sent.png";
 import BotImg from "../img/Chatbot.png";
-import ChatRoomImg from "../img/Chat Room.png";
 import ChatHistoryModal from "../modals/ChatHistoryModal";
 
 export function cn(...classes: (string | undefined | false)[]) {
@@ -16,7 +16,6 @@ interface Message {
   timestamp: string;
 }
 
-// ✅ Uses your existing frontend .env
 const API_BASE =
   (import.meta as any).env?.VITE_API_URL?.toString()?.trim() ||
   "http://localhost:8000";
@@ -39,7 +38,7 @@ export default function AIAssistantPage() {
         id: "1",
         type: "bot",
         content:
-          "Hello! I'm IskoBot, your scholarship assistant. I can help you understand scholarship requirements, improve your eligibility, and answer questions about the application process. How can I assist you today?",
+          "Hello! I'm your scholarship assistant. I can help you understand scholarship requirements, improve your eligibility, and answer questions about the application process. How can I assist you today?",
         timestamp: nowTime(),
       },
     ];
@@ -59,9 +58,7 @@ export default function AIAssistantPage() {
     localStorage.setItem("chatHistory", JSON.stringify(messages));
   }, [messages]);
 
-  const addMessage = (msg: Message) => {
-    setMessages((prev) => [...prev, msg]);
-  };
+  const addMessage = (msg: Message) => setMessages((prev) => [...prev, msg]);
 
   const callChatApi = async (userMessage: string): Promise<string> => {
     const endpoints = [`${API_BASE}/api/chat`, `${API_BASE}/chat`];
@@ -122,9 +119,7 @@ export default function AIAssistantPage() {
       const answer = await callChatApi(text);
 
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === typingId ? { ...m, content: answer } : m
-        )
+        prev.map((m) => (m.id === typingId ? { ...m, content: answer } : m))
       );
     } catch {
       setMessages((prev) =>
@@ -145,105 +140,94 @@ export default function AIAssistantPage() {
 
   return (
     <Layout>
-      <div className="flex flex-col h-screen p-6 overflow-hidden bg-gray-50">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="mb-2 text-4xl font-bold">
-              AI Scholarship Assistant
-            </h1>
-            <p className="text-lg text-gray-600">
-              Get personalized guidance and answers to your questions
-            </p>
-          </div>
+      <div className="px-2 pt-2">
+        <h1 className="text-[26px] md:text-[32px] font-bold text-gray-900">
+          AI Scholarship Assitant
+        </h1>
 
-          <button
-            onClick={() => setIsHistoryOpen(true)}
-            className="flex items-center gap-1 px-3 py-2 rounded-lg hover:bg-gray-200"
-          >
-            <img src={ChatRoomImg} alt="Chat History" className="w-5 h-5" />
-            <span className="text-sm font-medium text-green-800">
-              History
-            </span>
-          </button>
-        </div>
+        <p className="mt-1 text-[15px] md:text-[16px] text-gray-600">
+          Get personalized guidance and answers to your questions
+        </p>
+      </div>
 
-        {/* Chat container */}
-        <div
-          className="flex flex-col rounded-[20px] bg-white shadow-[0_4px_4px_0_rgba(0,0,0,0.25)] overflow-hidden"
-          style={{ maxHeight: "600px" }}
-        >
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-white border border-[#CFCFCF] border-b-0 rounded-t-[20px]">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={cn(
-                  "flex gap-3",
-                  message.type === "user" ? "justify-end" : "justify-start"
-                )}
-              >
-                {message.type === "bot" && (
-                  <div className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full overflow-hidden">
-                    <img
-                      src={BotImg}
-                      alt="Bot"
-                      className="object-cover w-full h-full"
-                    />
-                  </div>
-                )}
-
+      <div className="mt-5">
+        <div className="mx-auto w-full max-w-5xl rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="h-[540px] overflow-y-auto px-5 py-5">
+            {messages.map((message) => {
+              const isUser = message.type === "user";
+              return (
                 <div
+                  key={message.id}
                   className={cn(
-                    "flex max-w-[520px] flex-col gap-1 rounded-[12px] px-4 py-2 shadow-sm",
-                    message.type === "bot"
-                      ? "bg-[#F0F0F0]"
-                      : "bg-[#d1ffe3]"
+                    "mb-4 flex items-start gap-3",
+                    isUser ? "justify-end" : "justify-start"
                   )}
                 >
-                  <p className="text-sm">{message.content}</p>
-                  <span className="text-[11px] text-gray-500">
-                    {message.timestamp}
-                  </span>
+                  {!isUser && (
+                    <div className="mt-[2px] flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 overflow-hidden">
+                      <img
+                        src={BotImg}
+                        alt="Bot"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  )}
+
+                  <div
+                    className={cn(
+                      "max-w-[640px] rounded-lg px-4 py-3",
+                      isUser
+                        ? "bg-emerald-100 text-gray-900"
+                        : "bg-gray-100 text-gray-900"
+                    )}
+                  >
+                    <p className="text-[14px] leading-relaxed">
+                      {message.content}
+                    </p>
+                    <div className="mt-2 text-[12px] text-gray-500">
+                      {message.timestamp}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
-          <div className="flex items-center gap-2 border-t border-[#CFCFCF] px-3 py-2 bg-white rounded-b-[20px]">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="Type your message..."
-              className="flex-1 rounded-[10px] border border-[#CFCFCF] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              disabled={isSending}
-            />
-            <button
-              onClick={handleSend}
-              className="flex h-8 items-center gap-1 px-3 rounded-[10px] bg-green-900 hover:bg-green-600 disabled:opacity-50"
-              disabled={!inputValue.trim() || isSending}
-            >
-              <img src={SendImg} alt="Send" className="w-4 h-4" />
-              <span className="text-sm font-medium text-white">
-                {isSending ? "Sending..." : "Send"}
-              </span>
-            </button>
+          <div className="border-t border-gray-200 bg-white px-4 py-4">
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                placeholder="Ask me anything about the Alagang Arenas Scholarship..."
+                className="h-11 flex-1 rounded-md border border-gray-200 px-3 text-[14px] outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                disabled={isSending}
+              />
+
+              <button
+                onClick={handleSend}
+                disabled={!inputValue.trim() || isSending}
+                className="flex h-11 items-center justify-center gap-2 rounded-md bg-green-900 px-6 text-[14px] font-semibold text-white hover:bg-green-800 disabled:opacity-50"
+              >
+                <img src={SendImg} alt="Send" className="h-4 w-4" />
+                <span>{isSending ? "Sending..." : "Send"}</span>
+              </button>
+            </div>
+
+            <p className="mt-2 text-center text-[12px] text-gray-500">
+              IskoBot only provides information about scholarship from Alagang
+              Arenas. Check important info.
+            </p>
           </div>
-
-          <p className="px-3 pb-2 pt-1 text-center text-xs text-[#565656]">
-            IskoBot answers scholarship-related questions only.
-          </p>
         </div>
-
-        <ChatHistoryModal
-          isOpen={isHistoryOpen}
-          onClose={() => setIsHistoryOpen(false)}
-        />
       </div>
+
+      <ChatHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+      />
     </Layout>
   );
 }

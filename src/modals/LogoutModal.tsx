@@ -1,5 +1,3 @@
-// src/modals/LogoutModal.tsx
-
 interface LogoutModalProps {
     isOpen: boolean;
     onClose: () => void;

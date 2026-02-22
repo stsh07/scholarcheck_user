@@ -66,7 +66,7 @@ export default function LoginPage() {
 
   const normalizeEmail = (v: string) => v.trim().toLowerCase();
 
-  // ✅ Guard: If already logged in, never allow staying on /login (even via Back)
+  // Guard: If already logged in, never allow staying on /login (even via Back)
   useEffect(() => {
     const token = localStorage.getItem("scholarcheck_accessToken");
     const rawUser = localStorage.getItem("scholarcheck_user");

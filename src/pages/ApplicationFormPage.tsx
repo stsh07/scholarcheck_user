@@ -1,5 +1,5 @@
 // src/pages/ApplicationFormPage.tsx
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Layout } from "../components/Layout";
 
 type FormState = {
@@ -10,6 +10,8 @@ type FormState = {
   dob: string;
   gender: string;
   address: string;
+  phone: string;
+  email: string;
 
   fatherName: string;
   fatherOccupation: string;
@@ -48,10 +50,9 @@ type FileFieldName = keyof Pick<
   | "assessmentForm"
 >;
 
+const genders = ["Male", "Female"];
+
 export default function ApplicationFormPage() {
-  // ===============================
-  // Form state
-  // ===============================
   const initialForm: FormState = {
     firstName: "",
     middleName: "",
@@ -60,6 +61,8 @@ export default function ApplicationFormPage() {
     dob: "",
     gender: "",
     address: "",
+    phone: "",
+    email: "",
 
     fatherName: "",
     fatherOccupation: "",
@@ -82,18 +85,70 @@ export default function ApplicationFormPage() {
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const genders = ["Male", "Female"];
 
-  // ===============================
-  // Handle input changes (TEXT + SELECT ONLY)
-  // ===============================
+  const inputBase =
+    "w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-[14px] text-gray-900 placeholder:text-gray-400 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200";
+
+  const labelBase = "mb-1 block text-[13px] font-semibold text-gray-700";
+  const sectionTitle = "text-[15px] font-bold text-gray-900";
+  const sectionWrap = "mt-6";
+
+  function validateForm() {
+    const newErrors: Record<string, string> = {};
+    const today = new Date();
+
+    const required: TextFieldName[] = [
+      "firstName",
+      "lastName",
+      "dob",
+      "gender",
+      "address",
+      "phone",
+      "email",
+      "fatherName",
+      "fatherOccupation",
+      "fatherIncome",
+      "fatherPhone",
+      "motherName",
+      "motherOccupation",
+      "motherIncome",
+      "motherPhone",
+      "govGrant",
+    ];
+
+    required.forEach((k) => {
+      if (!String(form[k] ?? "").trim()) newErrors[k] = "Required";
+    });
+
+    if (form.dob) {
+      const dobDate = new Date(form.dob);
+      const age = today.getFullYear() - dobDate.getFullYear();
+      if (age > 75) newErrors.dob = "Age cannot be above 75.";
+      if (age < 16) newErrors.dob = "Must be at least 16 years old.";
+    }
+
+    const fileRequired: FileFieldName[] = [
+      "certificateOfResidency",
+      "indigencyCertificate",
+      "governmentID",
+      "certificateOfEnrollment",
+      "assessmentForm",
+    ];
+    fileRequired.forEach((k) => {
+      if (!form[k]) newErrors[k] = "File required";
+    });
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-
-    // Only allow text/select fields here
     const fieldName = name as TextFieldName;
+
+    let newValue = value;
 
     const letterOnlyFields: TextFieldName[] = [
       "firstName",
@@ -107,10 +162,8 @@ export default function ApplicationFormPage() {
       "motherOccupation",
     ];
     const numberFields: TextFieldName[] = ["fatherIncome", "motherIncome"];
-    const phoneFields: TextFieldName[] = ["fatherPhone", "motherPhone"];
+    const phoneFields: TextFieldName[] = ["fatherPhone", "motherPhone", "phone"];
     const addressFields: TextFieldName[] = ["address"];
-
-    let newValue = value;
 
     if (letterOnlyFields.includes(fieldName)) {
       newValue = value.replace(/[^A-Za-z]/g, "");
@@ -141,9 +194,6 @@ export default function ApplicationFormPage() {
     setForm((prev) => ({ ...prev, [fieldName]: newValue }));
   };
 
-  // ===============================
-  // File change with type validation
-  // ===============================
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, files } = e.target;
     const fieldName = name as FileFieldName;
@@ -166,549 +216,415 @@ export default function ApplicationFormPage() {
     }
   };
 
-  // ===============================
-  // Handle blur validation
-  // ===============================
-  const handleBlur = (
-    e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    validateField(e.target.name);
-  };
-
-  // ===============================
-  // Validate single field
-  // ===============================
-  const validateField = (name: string) => {
-    const newErrors: Record<string, string> = {};
-    const today = new Date();
-
-    switch (name) {
-      case "firstName":
-        if (!form.firstName) newErrors.firstName = "First Name is required.";
-        break;
-      case "middleName":
-        if (!form.middleName) newErrors.middleName = "Middle Name is required.";
-        break;
-      case "lastName":
-        if (!form.lastName) newErrors.lastName = "Last Name is required.";
-        break;
-      case "dob":
-        if (!form.dob) newErrors.dob = "Date of Birth required.";
-        else {
-          const dobDate = new Date(form.dob);
-          const age = today.getFullYear() - dobDate.getFullYear();
-          if (age > 75) newErrors.dob = "Age cannot be above 75.";
-          if (age < 16) newErrors.dob = "You must be at least 16 years old.";
-        }
-        break;
-      case "gender":
-        if (!form.gender) newErrors.gender = "Gender required.";
-        break;
-      case "address":
-        if (!form.address) newErrors.address = "Address required.";
-        break;
-
-      case "fatherName":
-        if (!form.fatherName) newErrors.fatherName = "Father's name required.";
-        break;
-      case "fatherOccupation":
-        if (!form.fatherOccupation)
-          newErrors.fatherOccupation = "Father's occupation required.";
-        break;
-      case "fatherIncome":
-        if (!form.fatherIncome)
-          newErrors.fatherIncome = "Father's income required.";
-        break;
-      case "fatherPhone":
-        if (!form.fatherPhone)
-          newErrors.fatherPhone = "Father's phone required.";
-        break;
-
-      case "motherName":
-        if (!form.motherName) newErrors.motherName = "Mother's name required.";
-        break;
-      case "motherOccupation":
-        if (!form.motherOccupation)
-          newErrors.motherOccupation = "Mother's occupation required.";
-        break;
-      case "motherIncome":
-        if (!form.motherIncome)
-          newErrors.motherIncome = "Mother's income required.";
-        break;
-      case "motherPhone":
-        if (!form.motherPhone)
-          newErrors.motherPhone = "Mother's phone required.";
-        break;
-
-      case "govGrant":
-        if (!form.govGrant)
-          newErrors.govGrant = "Please select an option.";
-        break;
-
-      case "certificateOfResidency":
-      case "indigencyCertificate":
-      case "governmentID":
-      case "certificateOfEnrollment":
-      case "assessmentForm": {
-        const k = name as FileFieldName;
-        if (!form[k]) newErrors[k] = "File required.";
-        break;
-      }
-    }
-
-    setErrors((prev) => ({ ...prev, ...newErrors }));
-  };
-
-  // ===============================
-  // Full form validation (FIXED)
-  // ===============================
-  const validateForm = () => {
-    const fields = [
-      "firstName",
-      "middleName",
-      "lastName",
-      "dob",
-      "gender",
-      "address",
-      "fatherName",
-      "fatherOccupation",
-      "fatherIncome",
-      "fatherPhone",
-      "motherName",
-      "motherOccupation",
-      "motherIncome",
-      "motherPhone",
-      "govGrant",
-      "certificateOfResidency",
-      "indigencyCertificate",
-      "governmentID",
-      "certificateOfEnrollment",
-      "assessmentForm",
-    ];
-
-    // Build errors in one go (avoids stale state issue)
-    const newErrors: Record<string, string> = {};
-    const today = new Date();
-
-    for (const name of fields) {
-      switch (name) {
-        case "firstName":
-          if (!form.firstName) newErrors.firstName = "First Name is required.";
-          break;
-        case "middleName":
-          if (!form.middleName) newErrors.middleName = "Middle Name is required.";
-          break;
-        case "lastName":
-          if (!form.lastName) newErrors.lastName = "Last Name is required.";
-          break;
-        case "dob":
-          if (!form.dob) newErrors.dob = "Date of Birth required.";
-          else {
-            const dobDate = new Date(form.dob);
-            const age = today.getFullYear() - dobDate.getFullYear();
-            if (age > 75) newErrors.dob = "Age cannot be above 75.";
-            if (age < 16) newErrors.dob = "You must be at least 16 years old.";
-          }
-          break;
-        case "gender":
-          if (!form.gender) newErrors.gender = "Gender required.";
-          break;
-        case "address":
-          if (!form.address) newErrors.address = "Address required.";
-          break;
-
-        case "fatherName":
-          if (!form.fatherName) newErrors.fatherName = "Father's name required.";
-          break;
-        case "fatherOccupation":
-          if (!form.fatherOccupation)
-            newErrors.fatherOccupation = "Father's occupation required.";
-          break;
-        case "fatherIncome":
-          if (!form.fatherIncome)
-            newErrors.fatherIncome = "Father's income required.";
-          break;
-        case "fatherPhone":
-          if (!form.fatherPhone)
-            newErrors.fatherPhone = "Father's phone required.";
-          break;
-
-        case "motherName":
-          if (!form.motherName) newErrors.motherName = "Mother's name required.";
-          break;
-        case "motherOccupation":
-          if (!form.motherOccupation)
-            newErrors.motherOccupation = "Mother's occupation required.";
-          break;
-        case "motherIncome":
-          if (!form.motherIncome)
-            newErrors.motherIncome = "Mother's income required.";
-          break;
-        case "motherPhone":
-          if (!form.motherPhone)
-            newErrors.motherPhone = "Mother's phone required.";
-          break;
-
-        case "govGrant":
-          if (!form.govGrant)
-            newErrors.govGrant = "Please select an option.";
-          break;
-
-        case "certificateOfResidency":
-          if (!form.certificateOfResidency)
-            newErrors.certificateOfResidency = "File required.";
-          break;
-        case "indigencyCertificate":
-          if (!form.indigencyCertificate)
-            newErrors.indigencyCertificate = "File required.";
-          break;
-        case "governmentID":
-          if (!form.governmentID) newErrors.governmentID = "File required.";
-          break;
-        case "certificateOfEnrollment":
-          if (!form.certificateOfEnrollment)
-            newErrors.certificateOfEnrollment = "File required.";
-          break;
-        case "assessmentForm":
-          if (!form.assessmentForm) newErrors.assessmentForm = "File required.";
-          break;
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  // ===============================
-  // Handle submit
-  // ===============================
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) alert("Form submitted successfully!");
   };
 
-  // ===============================
-  // Reset form
-  // ===============================
-  const handleDelete = () => {
+  const handleClear = () => {
     setForm(initialForm);
     setErrors({});
   };
 
-  // ===============================
-  // UI
-  // ===============================
-  const personalFields: { name: TextFieldName; label: string }[] = [
-    { name: "firstName", label: "First Name" },
-    { name: "middleName", label: "Middle Name" },
-    { name: "lastName", label: "Last Name" },
-    { name: "extension", label: "Extension" },
-  ];
+  const fileItems = useMemo(
+    () =>
+      [
+        { key: "certificateOfResidency", label: "Certificate of Residency*" },
+        { key: "indigencyCertificate", label: "Certificate of Indigency*" },
+        {
+          key: "governmentID",
+          label:
+            "Government-issued ID (PhilSys National ID/PHUMID/Passport, Driver’s License, Voter’s ID, etc)*",
+        },
+        { key: "certificateOfEnrollment", label: "Certificate of Enrollment*" },
+        { key: "assessmentForm", label: "Assessment Form*" },
+      ] as { key: FileFieldName; label: string }[],
+    []
+  );
 
   return (
     <Layout>
-      <h1 className="mb-4 text-3xl font-bold">Application Form</h1>
+      <div className="px-2 pt-2">
+        <h1 className="text-[26px] md:text-[32px] font-bold text-gray-900">
+          Application Form
+        </h1>
+        <p className="mt-1 text-[15px] md:text-[16px] text-gray-600">
+          Keep your information up-to-date
+        </p>
+      </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="p-6 mt-6 space-y-6 bg-white border border-gray-200 rounded-lg shadow-sm"
-      >
-        {/* Personal Information */}
-        <section>
-          <h2 className="mb-2 text-xl font-bold">Personal Information</h2>
+      <div className="mt-5">
+        <form
+          onSubmit={handleSubmit}
+          className="mx-auto w-full max-w-5xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+        >
+          <div>
+            <div className={sectionTitle}>Personal Information</div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-            {personalFields.map((field) => (
-              <div key={field.name}>
-                <label className="block mb-1 font-medium">{field.label} *</label>
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+              <div>
+                <label className={labelBase}>First Name *</label>
                 <input
-                  name={field.name}
-                  value={form[field.name]}
+                  name="firstName"
+                  value={form.firstName}
                   onChange={handleChange}
-                  onBlur={handleBlur}
-                  placeholder={field.label}
-                  className="w-full px-3 py-2 border rounded"
+                  className={inputBase}
                 />
-                {errors[field.name] && (
-                  <p className="text-xs text-red-500">{errors[field.name]}</p>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 mt-4 sm:grid-cols-3">
-            <div>
-              <label className="block mb-1 font-medium">Date of Birth *</label>
-              <input
-                type="date"
-                name="dob"
-                value={form.dob}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className="w-full px-3 py-2 border rounded"
-              />
-              {errors.dob && (
-                <p className="text-xs text-red-500">{errors.dob}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block mb-1 font-medium">Gender *</label>
-              <select
-                name="gender"
-                value={form.gender}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className="w-full px-3 py-2 border rounded"
-              >
-                <option value="">Select Gender</option>
-                {genders.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-              {errors.gender && (
-                <p className="text-xs text-red-500">{errors.gender}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block mb-1 font-medium">Address *</label>
-              <input
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Address"
-                className="w-full px-3 py-2 border rounded"
-              />
-              {errors.address && (
-                <p className="text-xs text-red-500">{errors.address}</p>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Parent Info */}
-        <section>
-          <h2 className="mt-4 mb-2 text-xl font-bold">Father's Information</h2>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block mb-1 font-medium">Full Name *</label>
-              <input
-                name="fatherName"
-                value={form.fatherName}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Full Name"
-                className="w-full px-3 py-2 border rounded"
-              />
-              {errors.fatherName && (
-                <p className="text-xs text-red-500">{errors.fatherName}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block mb-1 font-medium">Occupation *</label>
-              <input
-                name="fatherOccupation"
-                value={form.fatherOccupation}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Occupation"
-                className="w-full px-3 py-2 border rounded"
-              />
-              {errors.fatherOccupation && (
-                <p className="text-xs text-red-500">
-                  {errors.fatherOccupation}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 mt-2 sm:grid-cols-2">
-            <div>
-              <label className="block mb-1 font-medium">Monthly Income *</label>
-              <input
-                name="fatherIncome"
-                value={form.fatherIncome}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Monthly Income"
-                className="w-full px-3 py-2 border rounded"
-              />
-              {errors.fatherIncome && (
-                <p className="text-xs text-red-500">{errors.fatherIncome}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block mb-1 font-medium">Phone Number *</label>
-              <input
-                name="fatherPhone"
-                value={form.fatherPhone}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Phone Number"
-                className="w-full px-3 py-2 border rounded"
-              />
-              {errors.fatherPhone && (
-                <p className="text-xs text-red-500">{errors.fatherPhone}</p>
-              )}
-            </div>
-          </div>
-
-          <h2 className="mt-4 mb-2 text-xl font-bold">Mother's Information</h2>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block mb-1 font-medium">Full Name *</label>
-              <input
-                name="motherName"
-                value={form.motherName}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Full Name"
-                className="w-full px-3 py-2 border rounded"
-              />
-              {errors.motherName && (
-                <p className="text-xs text-red-500">{errors.motherName}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block mb-1 font-medium">Occupation *</label>
-              <input
-                name="motherOccupation"
-                value={form.motherOccupation}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Occupation"
-                className="w-full px-3 py-2 border rounded"
-              />
-              {errors.motherOccupation && (
-                <p className="text-xs text-red-500">
-                  {errors.motherOccupation}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 mt-2 sm:grid-cols-2">
-            <div>
-              <label className="block mb-1 font-medium">Monthly Income *</label>
-              <input
-                name="motherIncome"
-                value={form.motherIncome}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Monthly Income"
-                className="w-full px-3 py-2 border rounded"
-              />
-              {errors.motherIncome && (
-                <p className="text-xs text-red-500">{errors.motherIncome}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block mb-1 font-medium">Phone Number *</label>
-              <input
-                name="motherPhone"
-                value={form.motherPhone}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                placeholder="Phone Number"
-                className="w-full px-3 py-2 border rounded"
-              />
-              {errors.motherPhone && (
-                <p className="text-xs text-red-500">{errors.motherPhone}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Scholarship History */}
-          <h2 className="mt-6 mb-2 text-xl font-bold">Scholarship History</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block mb-1 font-medium">
-                Have you received any government grants or financial aid in the
-                last 3 months? *
-              </label>
-              <select
-                name="govGrant"
-                value={form.govGrant}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className="w-full px-3 py-2 border rounded"
-              >
-                <option value="">Select Option</option>
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-              </select>
-              {errors.govGrant && (
-                <p className="text-xs text-red-500">{errors.govGrant}</p>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* Documents */}
-        <section>
-          <h2 className="mt-4 mb-2 text-xl font-bold">Documents</h2>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {(
-              [
-                { key: "certificateOfResidency", label: "Certificate of Residency" },
-                { key: "indigencyCertificate", label: "Indigency Certificate" },
-                { key: "governmentID", label: "Government ID" },
-                { key: "certificateOfEnrollment", label: "Certificate of Enrollment" },
-                { key: "assessmentForm", label: "Assessment Form" },
-              ] as { key: FileFieldName; label: string }[]
-            ).map((file) => (
-              <div key={file.key}>
-                <label className="block mb-1 font-medium">{file.label} *</label>
-                <input
-                  type="file"
-                  name={file.key}
-                  onChange={handleFileChange}
-                  className="w-full px-3 py-2 border rounded"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                />
-                {errors[file.key] && (
-                  <p className="text-xs text-red-500">{errors[file.key]}</p>
-                )}
-
-                {form[file.key] && (
-                  <p className="mt-1 text-xs text-gray-600">
-                    Selected: <span className="font-medium">{form[file.key]!.name}</span>
+                {errors.firstName && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.firstName}
                   </p>
                 )}
               </div>
-            ))}
+
+              <div>
+                <label className={labelBase}>Middle Name *</label>
+                <input
+                  name="middleName"
+                  value={form.middleName}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.middleName && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.middleName}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className={labelBase}>Last Name *</label>
+                <input
+                  name="lastName"
+                  value={form.lastName}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.lastName && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.lastName}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className={labelBase}>Extension (optional)</label>
+                <input
+                  name="extension"
+                  value={form.extension}
+                  onChange={handleChange}
+                  className={inputBase}
+                  placeholder=""
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelBase}>Date Of Birth *</label>
+                <input
+                  type="date"
+                  name="dob"
+                  value={form.dob}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.dob && (
+                  <p className="mt-1 text-[12px] text-red-600">{errors.dob}</p>
+                )}
+              </div>
+
+              <div>
+                <label className={labelBase}>Gender (M/F)*</label>
+                <select
+                  name="gender"
+                  value={form.gender}
+                  onChange={handleChange}
+                  className={inputBase}
+                >
+                  <option value="">Select option</option>
+                  {genders.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+                {errors.gender && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.gender}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className={labelBase}>Address *</label>
+                <input
+                  name="address"
+                  value={form.address}
+                  onChange={handleChange}
+                  className={inputBase}
+                  placeholder="Enter your address (Barangay, Province)"
+                />
+                {errors.address && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.address}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div>
+                <label className={labelBase}>Phone Number *</label>
+                <input
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.phone && (
+                  <p className="mt-1 text-[12px] text-red-600">{errors.phone}</p>
+                )}
+              </div>
+
+              <div>
+                <label className={labelBase}>Email Address *</label>
+                <input
+                  name="email"
+                  type="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.email && (
+                  <p className="mt-1 text-[12px] text-red-600">{errors.email}</p>
+                )}
+              </div>
+
+              <div />
+            </div>
           </div>
-        </section>
 
-        {/* Buttons */}
-        <div className="flex justify-center gap-4 mt-6">
-          <button
-            type="submit"
-            className="px-6 py-3 font-semibold text-white bg-green-800 rounded hover:bg-green-900"
-          >
-            Submit
-          </button>
+          <div className={sectionWrap}>
+            <div className={sectionTitle}>Father&apos;s Information</div>
 
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="px-6 py-3 font-semibold text-white bg-red-600 rounded hover:bg-red-700"
-          >
-            Clear
-          </button>
-        </div>
-      </form>
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className={labelBase}>Full Name *</label>
+                <input
+                  name="fatherName"
+                  value={form.fatherName}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.fatherName && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.fatherName}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className={labelBase}>Occupation *</label>
+                <input
+                  name="fatherOccupation"
+                  value={form.fatherOccupation}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.fatherOccupation && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.fatherOccupation}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className={labelBase}>Monthly Income *</label>
+                <input
+                  name="fatherIncome"
+                  value={form.fatherIncome}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.fatherIncome && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.fatherIncome}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className={labelBase}>Phone Number*</label>
+                <input
+                  name="fatherPhone"
+                  value={form.fatherPhone}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.fatherPhone && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.fatherPhone}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className={sectionWrap}>
+            <div className={sectionTitle}>Mother&apos;s Information</div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className={labelBase}>Full Name *</label>
+                <input
+                  name="motherName"
+                  value={form.motherName}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.motherName && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.motherName}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className={labelBase}>Occupation *</label>
+                <input
+                  name="motherOccupation"
+                  value={form.motherOccupation}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.motherOccupation && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.motherOccupation}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className={labelBase}>Monthly Income *</label>
+                <input
+                  name="motherIncome"
+                  value={form.motherIncome}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.motherIncome && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.motherIncome}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className={labelBase}>Phone Number*</label>
+                <input
+                  name="motherPhone"
+                  value={form.motherPhone}
+                  onChange={handleChange}
+                  className={inputBase}
+                />
+                {errors.motherPhone && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.motherPhone}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className={sectionWrap}>
+            <div className={sectionTitle}>Scholarship History</div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label className={labelBase}>
+                  Have you received any government grants or financial aid in the
+                  last 3 months? *
+                </label>
+                <select
+                  name="govGrant"
+                  value={form.govGrant}
+                  onChange={handleChange}
+                  className={inputBase}
+                >
+                  <option value="">Select option</option>
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+                {errors.govGrant && (
+                  <p className="mt-1 text-[12px] text-red-600">
+                    {errors.govGrant}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className={sectionWrap}>
+            <div className={sectionTitle}>Documents</div>
+
+            <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3">
+              {fileItems.map((item) => (
+                <div key={item.key}>
+                  <label className={labelBase}>{item.label}</label>
+
+                  <div className="relative">
+                    <input
+                      type="file"
+                      name={item.key}
+                      onChange={handleFileChange}
+                      accept=".pdf,.png,.jpg,.jpeg"
+                      className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                    />
+                    <div className="flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2.5 text-[14px] text-gray-600">
+                      <span className="truncate">
+                        {form[item.key]?.name
+                          ? form[item.key]!.name
+                          : "Choose File"}
+                      </span>
+                      <span className="ml-3 shrink-0 rounded bg-gray-100 px-2 py-1 text-[12px] text-gray-700">
+                        Browse
+                      </span>
+                    </div>
+                  </div>
+
+                  {errors[item.key] && (
+                    <p className="mt-1 text-[12px] text-red-600">
+                      {errors[item.key]}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-10 flex justify-center gap-3">
+            <button
+              type="submit"
+              className="rounded-md bg-green-800 px-10 py-3 text-[14px] font-semibold text-white hover:bg-green-900"
+            >
+              Submit
+            </button>
+
+            <button
+              type="button"
+              onClick={handleClear}
+              className="rounded-md bg-gray-400 px-10 py-3 text-[14px] font-semibold text-white hover:bg-gray-500"
+            >
+              Clear
+            </button>
+          </div>
+        </form>
+      </div>
     </Layout>
   );
 }
