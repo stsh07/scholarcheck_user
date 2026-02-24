@@ -156,7 +156,7 @@ export function Layout({ children }: LayoutProps) {
 
       {/* ===== MAIN AREA ===== */}
       <div style={{ marginLeft: SIDEBAR_W }}>
-        {/* ✅ HEADER now same color as sidebar */}
+        {/* HEADER now same color as sidebar */}
         <header
           className="fixed right-0 top-0 z-50 flex items-center justify-end px-6 bg-white border-b border-gray-200"
           style={{

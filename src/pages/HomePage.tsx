@@ -2,16 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "../components/Layout";
-
-interface Scholarship {
-  id: number;
-  name: string;
-  payoutDate: string;
-  location: string;
-  note: string;
-}
-
-const scholarships: Scholarship[] = [];
+import { listAnnouncements, type Announcement } from "../api/announcements";
+import { Calendar, Clock, Megaphone } from "lucide-react";
 
 type StoredUser = {
   id: number;
@@ -26,26 +18,21 @@ function hasValidSession() {
   return !!token && !!rawUser;
 }
 
-function useLockBackToHome(enabled: boolean) {
-  const navigate = useNavigate();
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
-  useEffect(() => {
-    if (!enabled) return;
-
-    const pushGuard = () => {
-      window.history.pushState({ __lockHome: true }, "", window.location.href);
-    };
-
-    pushGuard();
-
-    const onPopState = () => {
-      navigate("/home", { replace: true });
-      window.setTimeout(() => pushGuard(), 0);
-    };
-
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, [enabled, navigate]);
+function formatTime(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export default function HomePage() {
@@ -53,7 +40,9 @@ export default function HomePage() {
   const [user, setUser] = useState<StoredUser | null>(null);
   const [greeting, setGreeting] = useState("Welcome");
 
-  useLockBackToHome(hasValidSession());
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+  const [announcementError, setAnnouncementError] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("scholarcheck_accessToken");
@@ -77,73 +66,108 @@ export default function HomePage() {
     }
   }, [navigate]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      setLoadingAnnouncements(true);
+      setAnnouncementError(null);
+
+      try {
+        const res = await listAnnouncements();
+        if (!mounted) return;
+        setAnnouncements(res.announcements || []);
+      } catch (e: any) {
+        if (!mounted) return;
+        setAnnouncementError(e?.message || "Failed to load announcements");
+      } finally {
+        if (!mounted) return;
+        setLoadingAnnouncements(false);
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const firstName = useMemo(() => user?.firstName || "Student", [user]);
-  const hasAnnouncements = scholarships.length > 0;
 
   return (
     <Layout>
-      <div className="px-2 pt-2">
+      {/* SAME horizontal padding for EVERYTHING */}
+      <div className="px-6 md:px-10 pt-6">
+
+        {/* Welcome Section */}
         <h1 className="text-[26px] md:text-[32px] font-bold text-gray-900">
           {greeting}, {firstName}!
         </h1>
 
         <p className="mt-1 text-[15px] md:text-[16px] text-gray-600">
-          Track your District 3 scholarship from Alagang Arenas and stay updated
-          on your educational assistance.
+          Track your District 3 scholarship from Alagang Arenas and stay updated on your educational assistance.
         </p>
-      </div>
 
-      <div className="mt-10">
-        {!hasAnnouncements ? (
-          <div className="flex items-center justify-center min-h-[55vh]">
-            <p className="text-[14px] md:text-[15px] text-gray-500">
+        {/* Announcements Section */}
+        <div className="mt-10">
+
+          {loadingAnnouncements ? (
+            <p className="text-gray-500 text-sm">Loading announcements...</p>
+          ) : announcementError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {announcementError}
+            </div>
+          ) : announcements.length === 0 ? (
+            <p className="text-gray-500 text-sm">
               You have no announcements at the moment.
             </p>
-          </div>
-        ) : (
-          <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-6">
-            <h2 className="text-[18px] md:text-[20px] font-semibold text-gray-900">
-              Announcements
-            </h2>
+          ) : (
+            <div className="rounded-2xl bg-white border border-gray-200 shadow-sm overflow-hidden">
 
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="text-left text-gray-600 border-b border-gray-200">
-                    <th className="px-4 py-3 text-[14px] font-semibold">
-                      Scholarship
-                    </th>
-                    <th className="px-4 py-3 text-[14px] font-semibold">
-                      Payout Date
-                    </th>
-                    <th className="px-4 py-3 text-[14px] font-semibold">
-                      Location
-                    </th>
-                    <th className="px-4 py-3 text-[14px] font-semibold">
-                      Note
-                    </th>
-                  </tr>
-                </thead>
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center gap-3">
+                  <Megaphone className="h-6 w-6 text-green-700" />
+                  <h2 className="text-[20px] font-semibold text-green-700">
+                    Announcements!
+                  </h2>
+                </div>
+              </div>
 
-                <tbody>
-                  {scholarships.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="transition border-b border-gray-100 hover:bg-gray-50"
-                    >
-                      <td className="px-4 py-4 text-[14px]">{item.name}</td>
-                      <td className="px-4 py-4 text-[14px]">
-                        {item.payoutDate}
-                      </td>
-                      <td className="px-4 py-4 text-[14px]">{item.location}</td>
-                      <td className="px-4 py-4 text-[14px]">{item.note}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              {/* Cards */}
+              <div className="px-6 py-6 space-y-6">
+                {announcements.map((a) => (
+                  <div
+                    key={a.id}
+                    className="rounded-2xl border border-gray-200 bg-white px-6 py-5 shadow-sm overflow-hidden"
+                  >
+                    <div className="text-[15px] font-semibold text-gray-900 break-words">
+                      {a.title}
+                    </div>
+
+                    <div className="mt-3 text-[14px] text-gray-700 leading-relaxed whitespace-pre-wrap break-words break-all">
+                      {a.message}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-6 text-[12px] text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        {formatDate(a.createdAt)}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        {formatTime(a.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
             </div>
-          </div>
-        )}
+          )}
+
+        </div>
       </div>
     </Layout>
   );
