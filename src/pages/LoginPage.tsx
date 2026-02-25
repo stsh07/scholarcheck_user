@@ -71,7 +71,6 @@ export default function LoginPage() {
     const token = localStorage.getItem("scholarcheck_accessToken");
     const rawUser = localStorage.getItem("scholarcheck_user");
 
-    // basic check (you can make this stricter if you want)
     const isLoggedIn = !!token && !!rawUser;
 
     if (isLoggedIn) {
@@ -173,7 +172,6 @@ export default function LoginPage() {
           setSuccessOpen(true);
           window.setTimeout(() => {
             setSuccessOpen(false);
-            // ✅ replace removes /login from history entry
             navigate("/home", { replace: true });
           }, 1600);
 
@@ -257,8 +255,6 @@ export default function LoginPage() {
       const prev = clearLockIfExpired(readLimitState());
       const nextFailed = prev.failedAttempts + 1;
 
-      // Attempts 1..5 -> "Invalid credentials."
-      // Attempt 6 -> lock 2 minutes + "Too many login attempts..."
       if (nextFailed > MAX_FAILED_ATTEMPTS) {
         writeLimitState({
           failedAttempts: nextFailed,
@@ -292,7 +288,6 @@ export default function LoginPage() {
     const normalized = normalizeEmail(email);
     if (!normalized || !password) return;
 
-    // if locked, block resend too (consistent)
     const st = clearLockIfExpired(readLimitState());
     if (isLocked(st)) {
       const remaining = st.lockUntil - nowMs();
@@ -311,7 +306,6 @@ export default function LoginPage() {
         password,
       });
 
-      // successful loginStart resets attempts
       writeLimitState({
         failedAttempts: 0,
         lockUntil: 0,
@@ -370,16 +364,18 @@ export default function LoginPage() {
       </header>
 
       <main className="relative flex-1">
-        <div className="pointer-events-none absolute inset-0">
+        {/* Background panel: desktop only (prevents weird half-bg on phones) */}
+        <div className="pointer-events-none absolute inset-0 hidden lg:block">
           <div className="h-full w-1/2 bg-[#F0FDF4]" />
         </div>
 
         <div className="relative flex flex-col w-full max-w-6xl mx-auto lg:flex-row lg:min-h-[calc(100vh-80px)]">
+          {/* LEFT: welcome copy (desktop) */}
           <div className="hidden lg:flex lg:w-1/2">
             <div className="px-10 py-12 xl:px-12">
               <div className="max-w-md">
-                <h2 className="mb-2 text-xl font-bold text-black">Welcome Back to</h2>
-                <p className="text-4xl font-bold leading-tight text-green-800">
+                <h2 className="mb-2 text-2xl font-bold text-black">Welcome Back to</h2>
+                <p className="text-4xl font-bold leading-tight text-green-800 break-words">
                   ScholarCheck
                 </p>
                 <p className="mt-4 text-sm text-gray-700">
@@ -389,97 +385,112 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* RIGHT: form */}
           <div className="flex items-start justify-center flex-1 w-full px-4 py-10 sm:px-6 sm:py-12 bg-white">
             <div className="w-full max-w-md">
-              <h2 className="text-2xl sm:text-[25px] font-bold text-black mb-2">
-                Log In
-              </h2>
-              <p className="mb-6 text-sm font-normal text-black sm:text-base">
-                Please enter your credentials to access your account.
-              </p>
+              {/* Mobile-only welcome (so it doesn’t feel empty) */}
+              <div className="lg:hidden mb-6">
+                <h2 className="text-2xl font-bold text-black leading-tight">
+                  Welcome Back
+                </h2>
+                <p className="text-sm text-black/70 mt-1">
+                  Log in to continue your scholarship journey.
+                </p>
+              </div>
 
-              <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
-                <div className="flex flex-col min-w-0 gap-1">
-                  <label htmlFor="email" className="text-sm font-medium text-black">
-                    Email
-                  </label>
-                  <input
-                    id="email"
-                    type="text"
-                    inputMode="email"
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="w-full max-w-full px-4 py-3 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
-                    required
-                  />
-                </div>
+              {/* Card container for better mobile spacing */}
+              <div className="rounded-2xl border border-black/5 shadow-sm px-4 sm:px-6 py-6 sm:py-8">
+                <h2 className="text-xl sm:text-[25px] font-bold text-black mb-2">
+                  Log In
+                </h2>
+                <p className="mb-5 sm:mb-6 text-sm font-normal text-black sm:text-base">
+                  Please enter your credentials to access your account.
+                </p>
 
-                <div className="flex flex-col min-w-0 gap-1">
-                  <div className="flex items-center justify-between gap-3 mb-1">
-                    <label htmlFor="password" className="text-sm font-medium text-black">
-                      Password
+                <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
+                  <div className="flex flex-col min-w-0 gap-1">
+                    <label htmlFor="email" className="text-sm font-medium text-black">
+                      Email
                     </label>
-                    <Link
-                      to="/forgot-password"
-                      className="text-sm text-green-800 shrink-0 hover:underline"
-                    >
-                      Forgot your password?
-                    </Link>
-                  </div>
-
-                  <div className="relative">
                     <input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter your password"
-                      className="w-full max-w-full px-4 py-3 pr-12 border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                      id="email"
+                      type="text"
+                      inputMode="email"
+                      autoComplete="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter your email"
+                      className="w-full max-w-full px-4 py-3 text-sm sm:text-base border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
                       required
                     />
-
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 flex items-center justify-center bg-transparent p-0 border-0 focus:outline-none"
-                      aria-label="Toggle password visibility"
-                    >
-                      <img
-                        src={showPassword ? EyeOffIcon : EyeIcon}
-                        alt="Toggle password"
-                        className="object-contain w-5 h-5"
-                        draggable={false}
-                      />
-                    </button>
                   </div>
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={isSubmitDisabled}
-                  className={`w-full rounded-xl py-3 font-semibold text-white transition-colors ${
-                    isSubmitDisabled
-                      ? "bg-green-800/60 cursor-not-allowed"
-                      : "bg-green-800 hover:bg-green-900"
-                  }`}
-                >
-                  {loading
-                    ? "Logging in..."
-                    : lockRemainingMs > 0
-                    ? `Try again in ${formatRemaining(lockRemainingMs)}`
-                    : "Log In"}
-                </button>
-              </form>
+                  <div className="flex flex-col min-w-0 gap-1">
+                    {/* responsive: wrap nicely on small screens */}
+                    <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 mb-1">
+                      <label htmlFor="password" className="text-sm font-medium text-black">
+                        Password
+                      </label>
+                      <Link
+                        to="/forgot-password"
+                        className="text-sm text-green-800 hover:underline self-start xs:self-auto"
+                      >
+                        Forgot your password?
+                      </Link>
+                    </div>
 
-              <p className="mt-6 text-sm text-center text-black sm:text-base">
-                Don't have an account?{" "}
-                <Link to="/signup" className="text-green-800 hover:underline">
-                  Sign Up
-                </Link>
-              </p>
+                    <div className="relative">
+                      <input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="current-password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter your password"
+                        className="w-full max-w-full px-4 py-3 pr-12 text-sm sm:text-base border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                        required
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-md hover:bg-black/5 active:bg-black/10 focus:outline-none"
+                        aria-label="Toggle password visibility"
+                      >
+                        <img
+                          src={showPassword ? EyeOffIcon : EyeIcon}
+                          alt="Toggle password"
+                          className="object-contain w-5 h-5"
+                          draggable={false}
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitDisabled}
+                    className={`w-full rounded-xl py-3 font-semibold text-white text-sm sm:text-base transition-colors ${
+                      isSubmitDisabled
+                        ? "bg-green-800/60 cursor-not-allowed"
+                        : "bg-green-800 hover:bg-green-900"
+                    }`}
+                  >
+                    {loading
+                      ? "Logging in..."
+                      : lockRemainingMs > 0
+                      ? `Try again in ${formatRemaining(lockRemainingMs)}`
+                      : "Log In"}
+                  </button>
+                </form>
+
+                <p className="mt-6 text-sm sm:text-base text-center text-black">
+                  Don't have an account?{" "}
+                  <Link to="/signup" className="text-green-800 hover:underline">
+                    Sign Up
+                  </Link>
+                </p>
+              </div>
             </div>
           </div>
         </div>
