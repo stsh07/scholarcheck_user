@@ -37,9 +37,7 @@ export async function login(payload: { email: string; password: string }) {
   });
 }
 
-/* ============================
-   ✅ Login Approval Flow
-============================ */
+/*  Login Approval Flow */
 
 export async function loginStart(payload: { email: string; password: string }) {
   return apiFetch<{ message: string; challengeId: string }>(
@@ -70,9 +68,7 @@ export async function loginComplete(payload: { challengeId: string }) {
   });
 }
 
-/* ============================
-   ✅ Forgot Password Flow
-============================ */
+/* Forgot Password Flow */
 
 export async function requestResetCode(email: string) {
   return apiFetch<{ message: string; devOtp?: string }>(
