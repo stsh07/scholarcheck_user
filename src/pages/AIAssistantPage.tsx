@@ -140,94 +140,114 @@ export default function AIAssistantPage() {
 
   return (
     <Layout>
-      <div className="px-2 pt-2">
-        <h1 className="text-[26px] md:text-[32px] font-bold text-gray-900">
-          AI Scholarship Assitant
-        </h1>
+      {/* Page background like the screenshot */}
+      <div className="min-h-[calc(100vh-64px)] bg-emerald-50">
+        {/* Header */}
+        <div className="px-4 pt-6 md:px-8">
+          <h1 className="text-[26px] md:text-[32px] font-bold text-gray-900">
+            AI Scholarship Assistant
+          </h1>
 
-        <p className="mt-1 text-[15px] md:text-[16px] text-gray-600">
-          Get personalized guidance and answers to your questions
-        </p>
-      </div>
+          <p className="mt-1 text-[15px] md:text-[16px] text-gray-600">
+            Get personalized guidance and answers to your questions
+          </p>
+        </div>
 
-      <div className="mt-5">
-        <div className="mx-auto w-full max-w-5xl rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="h-[540px] overflow-y-auto px-5 py-5">
-            {messages.map((message) => {
-              const isUser = message.type === "user";
-              return (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "mb-4 flex items-start gap-3",
-                    isUser ? "justify-end" : "justify-start"
-                  )}
-                >
-                  {!isUser && (
-                    <div className="mt-[2px] flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 overflow-hidden">
-                      <img
-                        src={BotImg}
-                        alt="Bot"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  )}
+        {/* Chat Card */}
+        <div className="px-4 pb-8 pt-5 md:px-8">
+          <div className="mx-auto w-full max-w-6xl">
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              {/* Use flex column so input stays pinned at bottom */}
+              <div className="flex h-[70vh] min-h-[560px] flex-col md:h-[72vh]">
+                {/* Messages area */}
+                <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-7">
+                  <div className="space-y-5">
+                    {messages.map((message) => {
+                      const isUser = message.type === "user";
 
-                  <div
-                    className={cn(
-                      "max-w-[640px] rounded-lg px-4 py-3",
-                      isUser
-                        ? "bg-emerald-100 text-gray-900"
-                        : "bg-gray-100 text-gray-900"
-                    )}
-                  >
-                    <p className="text-[14px] leading-relaxed">
-                      {message.content}
-                    </p>
-                    <div className="mt-2 text-[12px] text-gray-500">
-                      {message.timestamp}
-                    </div>
+                      return (
+                        <div
+                          key={message.id}
+                          className={cn(
+                            "flex items-start gap-3",
+                            isUser ? "justify-end" : "justify-start"
+                          )}
+                        >
+                          {!isUser && (
+                            <div className="mt-[2px] flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 overflow-hidden">
+                              <img
+                                src={BotImg}
+                                alt="Bot"
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          )}
+
+                          <div
+                            className={cn(
+                              "max-w-[680px] rounded-2xl px-5 py-4 shadow-[0_1px_0_rgba(0,0,0,0.02)]",
+                              isUser
+                                ? "bg-emerald-100 text-gray-900"
+                                : "bg-gray-100 text-gray-900"
+                            )}
+                          >
+                            <p className="text-[14px] leading-relaxed md:text-[15px]">
+                              {message.content}
+                            </p>
+
+                            <div className="mt-3 text-[12px] text-gray-500">
+                              {message.timestamp}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
                   </div>
                 </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </div>
 
-          <div className="border-t border-gray-200 bg-white px-4 py-4">
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                placeholder="Ask me anything about the Alagang Arenas Scholarship..."
-                className="h-11 flex-1 rounded-md border border-gray-200 px-3 text-[14px] outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
-                disabled={isSending}
-              />
+                {/* Input area */}
+                <div className="border-t border-gray-200 bg-white px-4 py-4 md:px-6">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="text"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                      placeholder="Ask me anything about the Alagang Arenas Scholarship..."
+                      className="h-12 flex-1 rounded-md border border-gray-200 px-4 text-[14px] outline-none placeholder:text-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 disabled:bg-gray-50 md:text-[15px]"
+                      disabled={isSending}
+                    />
 
-              <button
-                onClick={handleSend}
-                disabled={!inputValue.trim() || isSending}
-                className="flex h-11 items-center justify-center gap-2 rounded-md bg-green-900 px-6 text-[14px] font-semibold text-white hover:bg-green-800 disabled:opacity-50"
-              >
-                <img src={SendImg} alt="Send" className="h-4 w-4" />
-                <span>{isSending ? "Sending..." : "Send"}</span>
-              </button>
+                    <button
+                      onClick={handleSend}
+                      disabled={!inputValue.trim() || isSending}
+                      className="flex h-12 items-center justify-center gap-2 rounded-md bg-green-900 px-6 text-[14px] font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      aria-label="Send message"
+                      title="Send"
+                    >
+                      <img src={SendImg} alt="" className="h-4 w-4" />
+                      <span>{isSending ? "Sending..." : "Send"}</span>
+                    </button>
+                  </div>
+
+                  <p className="mt-3 text-center text-[12px] text-gray-500">
+                    IskoBot only provides information about scholarship from
+                    Alagang Arenas. Check important info.
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <p className="mt-2 text-center text-[12px] text-gray-500">
-              IskoBot only provides information about scholarship from Alagang
-              Arenas. Check important info.
-            </p>
+            {/* (Optional) You can wire a button somewhere to open this modal.
+                Keeping it here so your current feature still works. */}
+            <ChatHistoryModal
+              isOpen={isHistoryOpen}
+              onClose={() => setIsHistoryOpen(false)}
+            />
           </div>
         </div>
       </div>
-
-      <ChatHistoryModal
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-      />
     </Layout>
   );
 }
