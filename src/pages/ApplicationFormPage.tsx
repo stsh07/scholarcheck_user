@@ -1,5 +1,5 @@
 // src/pages/ApplicationFormPage.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Layout } from "../components/Layout";
 
 import ConfirmModal from "../modals/ConfirmModal";
@@ -62,6 +62,24 @@ type FileFieldName = keyof Pick<
 
 const genders = ["Male", "Female"];
 
+const ADDRESS_OPTIONS = [
+  "Bayambang, Pangasinan",
+  "Calasioa, Pangasinan",
+  "Malasiqui, Pangasinan",
+  "Mapandan, Pangasinan",
+  "San Carlos, Pangasinan",
+  "Sta. Barbara, Pangasinan",
+];
+
+function formatBytes(bytes: number) {
+  if (!bytes && bytes !== 0) return "";
+  const sizes = ["B", "KB", "MB", "GB"];
+  if (bytes === 0) return "0 B";
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), sizes.length - 1);
+  const val = bytes / Math.pow(1024, i);
+  return `${val.toFixed(val >= 10 || i === 0 ? 0 : 1)} ${sizes[i]}`;
+}
+
 export default function ApplicationFormPage() {
   const initialForm: FormState = {
     firstName: "",
@@ -111,28 +129,50 @@ export default function ApplicationFormPage() {
   const [bannerTitle, setBannerTitle] = useState("");
   const [bannerMessage, setBannerMessage] = useState("");
 
+  // local previews for images only
+  const [previews, setPreviews] = useState<Partial<Record<FileFieldName, string>>>({});
+  const inputRefs = useRef<Partial<Record<FileFieldName, HTMLInputElement | null>>>({});
+
+  // tracks which server files user wants removed during Edit mode
+  const [removeFiles, setRemoveFiles] = useState<Partial<Record<FileFieldName, boolean>>>({});
+
+  const container = "mx-auto w-full max-w-6xl";
+
   const inputBase =
     "w-full rounded-md border border-gray-300 bg-white px-3 py-2.5 text-[14px] text-gray-900 placeholder:text-gray-400 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 disabled:bg-gray-100 disabled:text-gray-600 disabled:cursor-not-allowed";
 
   const labelBase = "mb-1 block text-[13px] font-semibold text-gray-700";
-  const sectionTitle = "text-[15px] font-bold text-gray-900";
-  const sectionWrap = "mt-6";
+  const sectionTitle = "text-[17px] md:text-[18px] font-bold text-gray-900";
+  const sectionWrap = "mt-7";
 
   const fileItems = useMemo(
     () =>
       [
-        { key: "certificateOfResidency", label: "Certificate of Residency*" },
-        { key: "indigencyCertificate", label: "Certificate of Indigency*" },
+        { key: "certificateOfResidency", label: "Certificate of Residency*", existingUrlKey: "certificateOfResidencyUrl" },
+        { key: "indigencyCertificate", label: "Certificate of Indigency*", existingUrlKey: "indigencyCertificateUrl" },
         {
           key: "governmentID",
           label:
             "Government-issued ID (PhilSys National ID/PHUMID/Passport, Driver’s License, Voter’s ID, etc)*",
+          existingUrlKey: "governmentIDUrl",
         },
-        { key: "certificateOfEnrollment", label: "Certificate of Enrollment*" },
-        { key: "assessmentForm", label: "Assessment Form*" },
-      ] as { key: FileFieldName; label: string }[],
+        { key: "certificateOfEnrollment", label: "Certificate of Enrollment*", existingUrlKey: "certificateOfEnrollmentUrl" },
+        { key: "assessmentForm", label: "Assessment Form*", existingUrlKey: "assessmentFormUrl" },
+      ] as {
+        key: FileFieldName;
+        label: string;
+        existingUrlKey:
+          | "certificateOfResidencyUrl"
+          | "indigencyCertificateUrl"
+          | "governmentIDUrl"
+          | "certificateOfEnrollmentUrl"
+          | "assessmentFormUrl";
+      }[],
     []
   );
+
+  const canEdit = !!existing && existing.status === "Pending";
+  const canModifyDocs = canEdit && !readOnly;
 
   function openBanner(variant: "success" | "error" | "info", title: string, message: string) {
     setBannerVariant(variant);
@@ -141,7 +181,30 @@ export default function ApplicationFormPage() {
     setBannerOpen(true);
   }
 
+  function revokePreview(key: FileFieldName) {
+    setPreviews((prev) => {
+      const url = prev[key];
+      if (url) URL.revokeObjectURL(url);
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
+  function setFileValue(field: FileFieldName, file: File | null) {
+    revokePreview(field);
+
+    setForm((prev) => ({ ...prev, [field]: file }));
+
+    if (file && file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setPreviews((prev) => ({ ...prev, [field]: url }));
+    }
+  }
+
   function fillFromExisting(app: ApplicationDto) {
+    (Object.keys(previews) as FileFieldName[]).forEach((k) => revokePreview(k));
+
     setForm({
       firstName: app.firstName || "",
       middleName: app.middleName || "",
@@ -165,12 +228,18 @@ export default function ApplicationFormPage() {
 
       govGrant: app.govGrant || "",
 
-      // cannot prefill files in browser
       certificateOfResidency: null,
       indigencyCertificate: null,
       governmentID: null,
       certificateOfEnrollment: null,
       assessmentForm: null,
+    });
+
+    setRemoveFiles({});
+
+    (Object.keys(inputRefs.current) as FileFieldName[]).forEach((k) => {
+      const el = inputRefs.current[k];
+      if (el) el.value = "";
     });
   }
 
@@ -188,7 +257,6 @@ export default function ApplicationFormPage() {
 
         if (app) {
           fillFromExisting(app);
-          // lock after submit; edit only if Pending
           setReadOnly(true);
         } else {
           setReadOnly(false);
@@ -204,6 +272,7 @@ export default function ApplicationFormPage() {
     load();
     return () => {
       mounted = false;
+      (Object.keys(previews) as FileFieldName[]).forEach((k) => revokePreview(k));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -243,7 +312,6 @@ export default function ApplicationFormPage() {
       if (age < 16) newErrors.dob = "Must be at least 16 years old.";
     }
 
-    // require files on first submit only
     if (!existing) {
       const fileRequired: FileFieldName[] = [
         "certificateOfResidency",
@@ -274,7 +342,6 @@ export default function ApplicationFormPage() {
     const occupationFields: TextFieldName[] = ["fatherOccupation", "motherOccupation"];
     const numberFields: TextFieldName[] = ["fatherIncome", "motherIncome"];
     const phoneFields: TextFieldName[] = ["fatherPhone", "motherPhone", "phone"];
-    const addressFields: TextFieldName[] = ["address"];
 
     if (letterOnlyFields.includes(fieldName)) {
       newValue = value.replace(/[^A-Za-z]/g, "");
@@ -298,10 +365,6 @@ export default function ApplicationFormPage() {
       newValue = value.replace(/[^0-9]/g, "").slice(0, 11);
     }
 
-    if (addressFields.includes(fieldName)) {
-      newValue = newValue.slice(0, 50);
-    }
-
     setForm((prev) => ({ ...prev, [fieldName]: newValue }));
   };
 
@@ -320,13 +383,35 @@ export default function ApplicationFormPage() {
           ...prev,
           [fieldName]: "Only PDF, PNG, JPG allowed.",
         }));
-        setForm((prev) => ({ ...prev, [fieldName]: null }));
+        setFileValue(fieldName, null);
         return;
       }
 
+      // user is replacing -> unmark removal for this field
+      setRemoveFiles((prev) => {
+        const next = { ...prev };
+        delete next[fieldName];
+        return next;
+      });
+
       setErrors((prev) => ({ ...prev, [fieldName]: "" }));
-      setForm((prev) => ({ ...prev, [fieldName]: file }));
+      setFileValue(fieldName, file);
     }
+  };
+
+  // ✅ one "X" that handles both removing server file and clearing selected file
+  const handleX = (fieldName: FileFieldName, hasServerFile: boolean) => {
+    if (!canModifyDocs) return;
+
+    if (hasServerFile) {
+      setRemoveFiles((prev) => ({ ...prev, [fieldName]: true }));
+    }
+
+    setFileValue(fieldName, null);
+    setErrors((prev) => ({ ...prev, [fieldName]: "" }));
+
+    const el = inputRefs.current[fieldName];
+    if (el) el.value = "";
   };
 
   function buildFormData() {
@@ -361,15 +446,16 @@ export default function ApplicationFormPage() {
     if (form.certificateOfEnrollment) fd.append("certificateOfEnrollment", form.certificateOfEnrollment);
     if (form.assessmentForm) fd.append("assessmentForm", form.assessmentForm);
 
+    // backend can use this to clear file urls/delete stored files
+    fd.append("removeFiles", JSON.stringify(removeFiles));
+
     return fd;
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (readOnly) return;
-
     if (!validateForm()) return;
-
     setConfirmOpen(true);
   };
 
@@ -378,11 +464,8 @@ export default function ApplicationFormPage() {
     try {
       const fd = buildFormData();
 
-      if (!existing) {
-        await submitApplication(fd);
-      } else {
-        await updateMyApplication(fd);
-      }
+      if (!existing) await submitApplication(fd);
+      else await updateMyApplication(fd);
 
       const updated = await getMyApplication();
       setExisting(updated);
@@ -394,7 +477,7 @@ export default function ApplicationFormPage() {
       openBanner(
         "success",
         "Submission Successful!",
-        "You have successfully submitted your application. Please allow time for review. Once approved, you will be certified and included in the blockchain logging process."
+        "You have successfully submitted your application. Please allow time for review. You will be notified once a decision has been made."
       );
     } catch (e: any) {
       openBanner("error", "Submission Failed", e?.message || "Failed to submit your application.");
@@ -405,35 +488,41 @@ export default function ApplicationFormPage() {
 
   const handleClear = () => {
     if (readOnly) return;
+
+    (Object.keys(previews) as FileFieldName[]).forEach((k) => revokePreview(k));
     setForm(initialForm);
     setErrors({});
+    setRemoveFiles({});
+
+    (Object.keys(inputRefs.current) as FileFieldName[]).forEach((k) => {
+      const el = inputRefs.current[k];
+      if (el) el.value = "";
+    });
   };
 
-  const canEdit = !!existing && existing.status === "Pending";
+  const statusPillClass =
+    existing &&
+    [
+      "inline-flex items-center rounded-xl px-3 py-1.5 text-[12px] font-semibold",
+      existing.status === "Pending"
+        ? "bg-[#FFEDD4] text-[#AB2D00]"
+        : existing.status === "Approved"
+        ? "bg-[#DBFCE7] text-[#637C30]"
+        : "bg-[#FFE2E2] text-[#B51D37]",
+    ].join(" ");
 
   return (
     <Layout>
-      <div className="px-2 pt-2">
+      <div className={[container, "px-2 pt-2"].join(" ")}>
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <h1 className="text-[26px] md:text-[32px] font-bold text-gray-900">Application Form</h1>
-            <p className="mt-1 text-[15px] md:text-[16px] text-gray-600">Keep your information up-to-date</p>
+            <h1 className="text-[26px] font-bold text-gray-900 md:text-[32px]">Application Form</h1>
+            <p className="mt-1 text-[15px] text-gray-600 md:text-[16px]">Keep your information up-to-date</p>
           </div>
 
           {existing && (
             <div className="flex items-center gap-2">
-              <span
-                className={[
-                  "inline-flex items-center rounded-xl px-3 py-1.5 text-[12px] font-semibold",
-                  existing.status === "Pending"
-                    ? "bg-[#FFEDD4] text-[#AB2D00]"
-                    : existing.status === "Approved"
-                    ? "bg-[#DBFCE7] text-[#637C30]"
-                    : "bg-[#FFE2E2] text-[#B51D37]",
-                ].join(" ")}
-              >
-                {existing.status}
-              </span>
+              <span className={statusPillClass || ""}>{existing.status}</span>
 
               {readOnly && canEdit && (
                 <button
@@ -466,17 +555,15 @@ export default function ApplicationFormPage() {
             ].join(" ")}
           >
             {existing.status === "Approved"
-              ? "Your application has been approved. This account will be certified and included in the blockchain logging process."
+              ? "Your application has been approved. Your account is now verified for scholarship processing."
               : "Your application has been declined. If you believe this is a mistake, contact the scholarship office."}
           </div>
         )}
       </div>
 
-      <div className="mt-5">
-        <form
-          onSubmit={handleSubmit}
-          className="mx-auto w-full max-w-5xl rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-        >
+      <div className={[container, "mt-5"].join(" ")}>
+        <form onSubmit={handleSubmit} className="w-full rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          {/* Personal */}
           <div>
             <div className={sectionTitle}>Personal Information</div>
 
@@ -527,14 +614,14 @@ export default function ApplicationFormPage() {
 
               <div>
                 <label className={labelBase}>Address *</label>
-                <input
-                  name="address"
-                  value={form.address}
-                  onChange={handleChange}
-                  className={inputBase}
-                  placeholder="Enter your address (Barangay, Province)"
-                  disabled={readOnly}
-                />
+                <select name="address" value={form.address} onChange={handleChange} className={inputBase} disabled={readOnly}>
+                  <option value="">Select address</option>
+                  {ADDRESS_OPTIONS.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
                 {errors.address && <p className="mt-1 text-[12px] text-red-600">{errors.address}</p>}
               </div>
             </div>
@@ -548,14 +635,7 @@ export default function ApplicationFormPage() {
 
               <div>
                 <label className={labelBase}>Email Address *</label>
-                <input
-                  name="email"
-                  type="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  className={inputBase}
-                  disabled={readOnly}
-                />
+                <input name="email" type="email" value={form.email} onChange={handleChange} className={inputBase} disabled={readOnly} />
                 {errors.email && <p className="mt-1 text-[12px] text-red-600">{errors.email}</p>}
               </div>
 
@@ -563,6 +643,7 @@ export default function ApplicationFormPage() {
             </div>
           </div>
 
+          {/* Father */}
           <div className={sectionWrap}>
             <div className={sectionTitle}>Father&apos;s Information</div>
 
@@ -575,13 +656,7 @@ export default function ApplicationFormPage() {
 
               <div>
                 <label className={labelBase}>Occupation *</label>
-                <input
-                  name="fatherOccupation"
-                  value={form.fatherOccupation}
-                  onChange={handleChange}
-                  className={inputBase}
-                  disabled={readOnly}
-                />
+                <input name="fatherOccupation" value={form.fatherOccupation} onChange={handleChange} className={inputBase} disabled={readOnly} />
                 {errors.fatherOccupation && <p className="mt-1 text-[12px] text-red-600">{errors.fatherOccupation}</p>}
               </div>
             </div>
@@ -601,6 +676,7 @@ export default function ApplicationFormPage() {
             </div>
           </div>
 
+          {/* Mother */}
           <div className={sectionWrap}>
             <div className={sectionTitle}>Mother&apos;s Information</div>
 
@@ -613,13 +689,7 @@ export default function ApplicationFormPage() {
 
               <div>
                 <label className={labelBase}>Occupation *</label>
-                <input
-                  name="motherOccupation"
-                  value={form.motherOccupation}
-                  onChange={handleChange}
-                  className={inputBase}
-                  disabled={readOnly}
-                />
+                <input name="motherOccupation" value={form.motherOccupation} onChange={handleChange} className={inputBase} disabled={readOnly} />
                 {errors.motherOccupation && <p className="mt-1 text-[12px] text-red-600">{errors.motherOccupation}</p>}
               </div>
             </div>
@@ -639,14 +709,13 @@ export default function ApplicationFormPage() {
             </div>
           </div>
 
+          {/* History */}
           <div className={sectionWrap}>
             <div className={sectionTitle}>Scholarship History</div>
 
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className={labelBase}>
-                  Have you received any government grants or financial aid in the last 3 months? *
-                </label>
+                <label className={labelBase}>Have you received any government grants or financial aid in the last 3 months? *</label>
                 <select name="govGrant" value={form.govGrant} onChange={handleChange} className={inputBase} disabled={readOnly}>
                   <option value="">Select option</option>
                   <option value="Yes">Yes</option>
@@ -657,66 +726,109 @@ export default function ApplicationFormPage() {
             </div>
           </div>
 
+          {/* Documents */}
           <div className={sectionWrap}>
             <div className={sectionTitle}>Documents</div>
 
-            {existing && (
-              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 text-[13px]">
-                {existing.certificateOfResidencyUrl && (
-                  <a className="text-emerald-800 underline" href={existing.certificateOfResidencyUrl} target="_blank" rel="noreferrer">
-                    View Certificate of Residency
-                  </a>
-                )}
-                {existing.indigencyCertificateUrl && (
-                  <a className="text-emerald-800 underline" href={existing.indigencyCertificateUrl} target="_blank" rel="noreferrer">
-                    View Certificate of Indigency
-                  </a>
-                )}
-                {existing.governmentIDUrl && (
-                  <a className="text-emerald-800 underline" href={existing.governmentIDUrl} target="_blank" rel="noreferrer">
-                    View Government ID
-                  </a>
-                )}
-                {existing.certificateOfEnrollmentUrl && (
-                  <a className="text-emerald-800 underline" href={existing.certificateOfEnrollmentUrl} target="_blank" rel="noreferrer">
-                    View Certificate of Enrollment
-                  </a>
-                )}
-                {existing.assessmentFormUrl && (
-                  <a className="text-emerald-800 underline" href={existing.assessmentFormUrl} target="_blank" rel="noreferrer">
-                    View Assessment Form
-                  </a>
-                )}
-              </div>
-            )}
-
             <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-3">
-              {fileItems.map((item) => (
-                <div key={item.key}>
-                  <label className={labelBase}>{item.label}</label>
+              {fileItems.map((item) => {
+                const selected = form[item.key];
+                const existingUrl = existing ? (existing as any)[item.existingUrlKey] : "";
+                const hasServerFile = !!existingUrl && !removeFiles[item.key];
 
-                  <div className="relative">
-                    <input
-                      type="file"
-                      name={item.key}
-                      onChange={handleFileChange}
-                      accept=".pdf,.png,.jpg,.jpeg"
-                      disabled={readOnly}
-                      className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
-                    />
-                    <div className="flex items-center justify-between rounded-md border border-gray-300 bg-white px-3 py-2.5 text-[14px] text-gray-600">
-                      <span className="truncate">{form[item.key]?.name ? form[item.key]!.name : "Choose File"}</span>
-                      <span className="ml-3 shrink-0 rounded bg-gray-100 px-2 py-1 text-[12px] text-gray-700">Browse</span>
+                const showX = canModifyDocs && (hasServerFile || !!selected);
+
+                const primaryText = selected
+                  ? selected.name
+                  : hasServerFile
+                  ? "File already uploaded"
+                  : "No file selected";
+
+                const secondaryText = selected ? `${formatBytes(selected.size)} • ${selected.type || "Unknown type"}` : "";
+
+                return (
+                  <div key={item.key}>
+                    <label className={labelBase}>{item.label}</label>
+
+                    <div className="rounded-xl border border-gray-200 bg-white p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-semibold text-gray-900">{primaryText}</p>
+                          {secondaryText ? <p className="mt-1 text-[12px] text-gray-600">{secondaryText}</p> : null}
+
+                          {previews[item.key] && (
+                            <div className="mt-3 overflow-hidden rounded-lg border border-gray-200 bg-white">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={previews[item.key]} alt="Preview" className="h-28 w-full object-cover" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="shrink-0 flex items-center gap-2">
+                          {hasServerFile && (
+                            <a
+                              href={existingUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                              View
+                            </a>
+                          )}
+
+                          {showX && (
+                            <button
+                              type="button"
+                              onClick={() => handleX(item.key, hasServerFile)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                              aria-label="Remove file"
+                              title="Remove"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <div className="relative">
+                          <input
+                            ref={(el) => {
+                              inputRefs.current[item.key] = el;
+                            }}
+                            type="file"
+                            name={item.key}
+                            onChange={handleFileChange}
+                            accept=".pdf,.png,.jpg,.jpeg"
+                            disabled={!canModifyDocs}
+                            className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                          />
+
+                          <div
+                            className={[
+                              "flex items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-[14px] transition",
+                              !canModifyDocs ? "text-gray-400" : "text-gray-600 hover:bg-gray-50",
+                            ].join(" ")}
+                          >
+                            <span className="truncate">{canModifyDocs ? "Choose file" : "Upload disabled"}</span>
+                            <span className="ml-3 shrink-0 rounded bg-gray-100 px-2 py-1 text-[12px] font-semibold text-gray-700">
+                              Browse
+                            </span>
+                          </div>
+                        </div>
+
+                        {errors[item.key] && <p className="mt-2 text-[12px] text-red-600">{errors[item.key]}</p>}
+                      </div>
                     </div>
                   </div>
-
-                  {errors[item.key] && <p className="mt-1 text-[12px] text-red-600">{errors[item.key]}</p>}
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {existing && canEdit && !readOnly && (
-              <p className="mt-3 text-[12px] text-gray-600">You may re-upload documents if you need to replace them.</p>
+            {canEdit && !readOnly && (
+              <p className="mt-3 text-[12px] text-gray-600">
+                You may remove or replace uploaded documents while your application is still pending.
+              </p>
             )}
           </div>
 
@@ -747,7 +859,6 @@ export default function ApplicationFormPage() {
         </form>
       </div>
 
-      {/* ✅ Confirm modal (Are you sure?) */}
       <ConfirmModal
         isOpen={confirmOpen}
         title="Confirm Submission"
@@ -759,7 +870,6 @@ export default function ApplicationFormPage() {
         onClose={() => setConfirmOpen(false)}
       />
 
-      {/* ✅ Success/Error banner */}
       <StatusBannerModal
         isOpen={bannerOpen}
         variant={bannerVariant}
@@ -767,7 +877,6 @@ export default function ApplicationFormPage() {
         message={bannerMessage}
         onClose={() => {
           setBannerOpen(false);
-          // after success, keep locked
           setReadOnly(true);
         }}
       />
