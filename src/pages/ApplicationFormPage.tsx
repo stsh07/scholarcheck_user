@@ -1,9 +1,9 @@
 // src/pages/ApplicationFormPage.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Layout } from "../components/Layout";
-
-import ConfirmModal from "../modals/ConfirmModal";
+import ConfirmSubmissionModal from "../modals/ConfirmSubmissionModal";
 import StatusBannerModal from "../modals/StatusBannerModal";
+import SaveChangesModal from "../modals/SaveChangesModal";
 
 import {
   getMyApplication,
@@ -264,8 +264,12 @@ export default function ApplicationFormPage() {
   const [bannerTitle, setBannerTitle] = useState("");
   const [bannerMessage, setBannerMessage] = useState("");
 
+  const [saveChangesModalOpen, setSaveChangesModalOpen] = useState(false);
+
   const inputRefs = useRef<Partial<Record<FileFieldName, HTMLInputElement | null>>>({});
   const [removeFiles, setRemoveFiles] = useState<Partial<Record<FileFieldName, boolean>>>({});
+
+  const objectUrlMapRef = useRef<Partial<Record<FileFieldName, string>>>({});
 
   const container = "mx-auto w-full max-w-6xl";
 
@@ -318,8 +322,37 @@ export default function ApplicationFormPage() {
     []
   );
 
-  const canEdit = !!existing && existing.status === "Pending";
-  const canModifyDocs = !readOnly && (!existing || existing.status === "Pending");
+  function getApplicationIdentity(app: ApplicationDto | null) {
+    if (!app) return `email:${storedUser?.email || "guest"}`;
+    const maybeId = (app as any)?.id ?? (app as any)?._id ?? app.email ?? storedUser?.email;
+    return String(maybeId || "guest");
+  }
+
+  function getEditUsedKey(app: ApplicationDto | null) {
+    return `scholarcheck_application_edit_used:${getApplicationIdentity(app)}`;
+  }
+
+  function hasUsedOneEdit(app: ApplicationDto | null) {
+    try {
+      return localStorage.getItem(getEditUsedKey(app)) === "true";
+    } catch {
+      return false;
+    }
+  }
+
+  function markOneEditUsed(app: ApplicationDto | null) {
+    try {
+      localStorage.setItem(getEditUsedKey(app), "true");
+    } catch {
+      //
+    }
+  }
+
+  const editAlreadyUsed = hasUsedOneEdit(existing);
+  const canEditPending = !!existing && existing.status === "Pending";
+  const canEditOnce = canEditPending && !editAlreadyUsed;
+
+  const canModifyDocs = !readOnly && (!existing || (existing.status === "Pending" && !editAlreadyUsed));
 
   function openBanner(variant: "success" | "error" | "info", title: string, message: string) {
     setBannerVariant(variant);
@@ -328,11 +361,50 @@ export default function ApplicationFormPage() {
     setBannerOpen(true);
   }
 
+  function revokeObjectUrl(field: FileFieldName) {
+    const existingUrl = objectUrlMapRef.current[field];
+    if (existingUrl) {
+      URL.revokeObjectURL(existingUrl);
+      delete objectUrlMapRef.current[field];
+    }
+  }
+
   function setFileValue(field: FileFieldName, file: File | null) {
+    revokeObjectUrl(field);
     setForm((prev) => ({ ...prev, [field]: file }));
   }
 
+  function getSelectedFileUrl(field: FileFieldName) {
+    const file = form[field];
+    if (!file) return "";
+
+    const existingUrl = objectUrlMapRef.current[field];
+    if (existingUrl) return existingUrl;
+
+    const nextUrl = URL.createObjectURL(file);
+    objectUrlMapRef.current[field] = nextUrl;
+    return nextUrl;
+  }
+
+  function openFile(field: FileFieldName, serverUrl?: string) {
+    const selectedFile = form[field];
+
+    if (selectedFile) {
+      const localUrl = getSelectedFileUrl(field);
+      if (localUrl) window.open(localUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (serverUrl) {
+      window.open(serverUrl, "_blank", "noopener,noreferrer");
+    }
+  }
+
   function fillFromExisting(app: ApplicationDto) {
+    (Object.keys(objectUrlMapRef.current) as FileFieldName[]).forEach((field) => {
+      revokeObjectUrl(field);
+    });
+
     setForm({
       firstName: app.firstName || "",
       middleName: app.middleName || "",
@@ -405,8 +477,12 @@ export default function ApplicationFormPage() {
     }
 
     load();
+
     return () => {
       mounted = false;
+      (Object.keys(objectUrlMapRef.current) as FileFieldName[]).forEach((field) => {
+        revokeObjectUrl(field);
+      });
     };
   }, [storedUser]);
 
@@ -617,23 +693,36 @@ export default function ApplicationFormPage() {
   const handleConfirmSubmit = async () => {
     setSubmitLoading(true);
     try {
+      const isEditingExisting = !!existing;
+
       const fd = buildFormData();
 
-      if (!existing) await submitApplication(fd);
-      else await updateMyApplication(fd);
+      if (!existing) {
+        await submitApplication(fd);
+      } else {
+        await updateMyApplication(fd);
+      }
 
       const updated = await getMyApplication();
       setExisting(updated);
       if (updated) fillFromExisting(updated);
 
+      if (isEditingExisting) {
+        markOneEditUsed(updated || existing);
+      }
+
       setConfirmOpen(false);
       setReadOnly(true);
 
-      openBanner(
-        "success",
-        "Submission Successful!",
-        "You have successfully submitted your application. Please allow time for review. You will be notified once a decision has been made."
-      );
+      if (isEditingExisting) {
+        setSaveChangesModalOpen(true);
+      } else {
+        openBanner(
+          "success",
+          "Submission Successful!",
+          "You have successfully submitted your application. Please allow time for review. You may edit your application once while it is still pending."
+        );
+      }
     } catch (e: any) {
       openBanner("error", "Submission Failed", e?.message || "Failed to submit your application.");
     } finally {
@@ -643,6 +732,10 @@ export default function ApplicationFormPage() {
 
   const handleClear = () => {
     if (readOnly) return;
+
+    (Object.keys(objectUrlMapRef.current) as FileFieldName[]).forEach((field) => {
+      revokeObjectUrl(field);
+    });
 
     setForm({
       ...initialForm,
@@ -687,16 +780,6 @@ export default function ApplicationFormPage() {
           {existing && (
             <div className="flex items-center gap-2">
               <span className={statusPillClass || ""}>{existing.status}</span>
-
-              {readOnly && canEdit && (
-                <button
-                  type="button"
-                  onClick={() => setReadOnly(false)}
-                  className="rounded-md border border-green-800 bg-white px-6 py-2 text-[13px] font-semibold text-gray-800 hover:bg-gray-50"
-                >
-                  Edit
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -706,6 +789,34 @@ export default function ApplicationFormPage() {
         {!loading && loadError && (
           <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] text-red-700">
             {loadError}
+          </div>
+        )}
+
+        {!loading && existing && (
+          <div className="mt-4 rounded-xl border border-gray-200 bg-[#f6f7f6] px-5 py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-[14px] font-bold text-[#111827]">Application Submitted</div>
+                <p className="mt-1 text-[12px] leading-relaxed text-gray-600">
+                  You can edit your application once. Click the &quot;Edit Application&quot; button to make changes.
+                </p>
+                {editAlreadyUsed && (
+                  <p className="mt-1 text-[12px] text-gray-500">
+                    You have already used your one allowed edit.
+                  </p>
+                )}
+              </div>
+
+              {readOnly && canEditOnce && (
+                <button
+                  type="button"
+                  onClick={() => setReadOnly(false)}
+                  className="inline-flex h-[36px] items-center justify-center rounded-md bg-green-800 px-5 text-[12px] font-semibold text-white hover:bg-green-900"
+                >
+                  Edit Application
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -994,6 +1105,7 @@ export default function ApplicationFormPage() {
                 const isSelected = !!selected || hasServerFile;
                 const disableChoose = !canModifyDocs || isSelected;
                 const showX = canModifyDocs && isSelected;
+                const canView = !!selected || hasServerFile;
 
                 return (
                   <div key={item.key}>
@@ -1015,27 +1127,38 @@ export default function ApplicationFormPage() {
                         className="hidden"
                       />
 
-                      <div className="flex h-[34px] w-full items-center justify-between rounded-[2px] border border-[#cfcfcf] bg-[#f3f3f3] px-[6px]">
+                      <div className="flex h-[42px] w-full items-center justify-between rounded-[6px] border border-[#cfcfcf] bg-white px-[8px]">
                         <label
                           htmlFor={item.key}
                           className={[
-                            "inline-flex h-[22px] min-w-[90px] items-center justify-center rounded-[2px] border border-[#bfbfbf] bg-[#ebebeb] px-3 text-[12px] leading-none text-[#555]",
+                            "inline-flex h-[28px] min-w-[94px] items-center justify-center rounded-[4px] border border-[#bfbfbf] bg-[#ebebeb] px-3 text-[12px] leading-none text-[#555]",
                             disableChoose ? "cursor-not-allowed text-[#b8b8b8]" : "cursor-pointer hover:bg-[#e3e3e3]",
                           ].join(" ")}
                         >
                           Choose File
                         </label>
 
-                        <span className="ml-3 flex-1 truncate text-right text-[12px] text-[#4b4b4b]">
-                          {isSelected ? "File selected" : ""}
-                        </span>
+                        {canView ? (
+                          <button
+                            type="button"
+                            onClick={() => openFile(item.key, hasServerFile ? existingUrl : "")}
+                            className="ml-3 flex-1 truncate text-right text-[12px] text-blue-600 underline underline-offset-2 hover:text-blue-700"
+                            title="View uploaded file"
+                          >
+                            File selected
+                          </button>
+                        ) : (
+                          <span className="ml-3 flex-1 truncate text-right text-[12px] text-[#4b4b4b]">
+                            {isSelected ? "File selected" : ""}
+                          </span>
+                        )}
                       </div>
 
                       {showX && (
                         <button
                           type="button"
                           onClick={() => handleX(item.key, hasServerFile)}
-                          className="inline-flex h-[34px] w-[34px] items-center justify-center rounded-[2px] border border-[#cfcfcf] bg-white text-[13px] text-gray-600 hover:bg-gray-50"
+                          className="inline-flex h-[42px] w-[42px] items-center justify-center rounded-[6px] border border-[#cfcfcf] bg-white text-[13px] text-gray-600 hover:bg-gray-50"
                           title="Remove file"
                           aria-label="Remove file"
                         >
@@ -1050,9 +1173,9 @@ export default function ApplicationFormPage() {
               })}
             </div>
 
-            {canEdit && !readOnly && (
+            {!readOnly && canEditOnce && (
               <p className="mt-3 text-[12px] text-gray-600">
-                Click ✕ to remove a selected document if you want to choose a different file.
+                Click the file text to view it, or click ✕ to remove a selected document if you want to choose a different file.
               </p>
             )}
           </div>
@@ -1066,7 +1189,7 @@ export default function ApplicationFormPage() {
                 readOnly ? "cursor-not-allowed bg-green-800/50" : "bg-green-800 hover:bg-green-900",
               ].join(" ")}
             >
-              {existing ? "Save" : "Submit"}
+              {existing ? "Save Changes" : "Submit"}
             </button>
 
             <button
@@ -1078,18 +1201,15 @@ export default function ApplicationFormPage() {
                 readOnly ? "cursor-not-allowed bg-gray-400/50" : "bg-gray-400 hover:bg-gray-500",
               ].join(" ")}
             >
-              Clear
+              Cancel
             </button>
           </div>
         </form>
       </div>
 
-      <ConfirmModal
+      <ConfirmSubmissionModal
         isOpen={confirmOpen}
-        title="Confirm Submission"
-        message="Are you sure you want to submit your application? Please make sure all your details are accurate before submitting."
-        confirmText={existing ? "Save" : "Submit"}
-        cancelText="Cancel"
+        mode={existing ? "edit" : "submit"}
         loading={submitLoading}
         onConfirm={handleConfirmSubmit}
         onClose={() => setConfirmOpen(false)}
@@ -1104,6 +1224,11 @@ export default function ApplicationFormPage() {
           setBannerOpen(false);
           setReadOnly(true);
         }}
+      />
+
+      <SaveChangesModal
+        isOpen={saveChangesModalOpen}
+        onClose={() => setSaveChangesModalOpen(false)}
       />
     </Layout>
   );
