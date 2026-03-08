@@ -1,5 +1,5 @@
 // src/components/AIHistoryPanel.tsx
-import React from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export interface AIHistoryItem {
   id: string;
@@ -14,6 +14,7 @@ interface AIHistoryPanelProps {
   onClose: () => void;
   items: AIHistoryItem[];
   onSelect?: (item: AIHistoryItem) => void;
+  onDelete?: (item: AIHistoryItem) => void;
 }
 
 function groupHistory(items: AIHistoryItem[]) {
@@ -29,34 +30,75 @@ export default function AIHistoryPanel({
   onClose,
   items,
   onSelect,
+  onDelete,
 }: AIHistoryPanelProps) {
-  if (!isOpen) return null;
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [shouldRender, setShouldRender] = useState(isOpen);
+  const [visible, setVisible] = useState(false);
 
-  const grouped = groupHistory(items);
+  const grouped = useMemo(() => groupHistory(items), [items]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+
+      const frame = requestAnimationFrame(() => {
+        setVisible(true);
+      });
+
+      return () => cancelAnimationFrame(frame);
+    }
+
+    setVisible(false);
+
+    const timeout = window.setTimeout(() => {
+      setShouldRender(false);
+      setOpenMenuId(null);
+    }, 260);
+
+    return () => window.clearTimeout(timeout);
+  }, [isOpen]);
+
+  if (!shouldRender) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex justify-end bg-black/30">
+    <div className="fixed inset-0 z-[100] flex justify-end">
       {/* backdrop */}
-      <div className="absolute inset-0" onClick={onClose} />
+      <div
+        className={`absolute inset-0 bg-black/30 transition-opacity duration-300 ease-out ${
+          visible ? "opacity-100" : "opacity-0"
+        }`}
+        onClick={() => {
+          setOpenMenuId(null);
+          onClose();
+        }}
+      />
 
       {/* panel */}
-      <div className="relative z-[101] h-full w-full max-w-[390px] bg-[#f7f7f7] shadow-xl">
+      <div
+        className={`relative z-[101] h-full w-full max-w-[390px] transform bg-[#f7f7f7] shadow-xl transition-all duration-300 ease-out ${
+          visible
+            ? "translate-x-0 opacity-100"
+            : "translate-x-full opacity-95"
+        }`}
+      >
         {/* header */}
         <div className="border-b border-gray-200 px-6 pb-4 pt-6">
-          <div className="flex items-start justify-between">
+          <div className="flex items-center justify-between">
             <div>
               <h2 className="text-[18px] font-semibold text-gray-900">
                 Chat History
               </h2>
-
-              <p className="mt-1 text-[13px] text-gray-500">
-                Select a chat to continue or delete a chat.
-              </p>
             </div>
 
             <button
-              onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-gray-200"
+              onClick={() => {
+                setOpenMenuId(null);
+                onClose();
+              }}
+              className="flex h-8 w-8 items-center justify-center rounded-md transition hover:bg-gray-200 active:scale-95"
+              aria-label="Close history"
+              type="button"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -74,51 +116,118 @@ export default function AIHistoryPanel({
         </div>
 
         {/* content */}
-        <div className="h-[calc(100%-90px)] overflow-y-auto px-6 py-5">
+        <div className="h-[calc(100%-77px)] overflow-y-auto px-6 py-5">
           <div className="space-y-6">
             {Object.entries(grouped).map(([group, chats]) => (
               <div key={group}>
-                {/* group title */}
                 <div className="mb-3 text-[12px] font-medium uppercase text-gray-500">
                   {group}
                 </div>
 
                 <div className="space-y-3">
                   {chats.map((chat) => (
-                    <button
+                    <div
                       key={chat.id}
-                      onClick={() => onSelect?.(chat)}
-                      className={`flex w-full items-center gap-4 rounded-lg px-4 py-4 text-left transition ${
+                      className={`group relative flex w-full items-center gap-4 rounded-lg px-4 py-4 text-left transition ${
                         chat.active
                           ? "bg-green-100"
                           : "bg-gray-100 hover:bg-gray-200"
                       }`}
                     >
-                      {/* icon */}
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-700 text-white">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          fill="none"
-                          className="h-4 w-4"
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          onSelect?.(chat);
+                        }}
+                        className="flex min-w-0 flex-1 items-center gap-4 text-left"
+                      >
+                        {/* icon */}
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-700 text-white">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            fill="none"
+                            className="h-4 w-4"
+                          >
+                            <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+                          </svg>
+                        </div>
+
+                        {/* text */}
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[14px] font-medium text-gray-900">
+                            {chat.title}
+                          </div>
+
+                          <div className="mt-1 text-[12px] text-gray-500">
+                            {chat.date}
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* 3 dots */}
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId((prev) =>
+                              prev === chat.id ? null : chat.id
+                            );
+                          }}
+                          className={`flex h-8 w-8 items-center justify-center rounded-md transition ${
+                            openMenuId === chat.id
+                              ? "bg-white text-gray-800 shadow-sm"
+                              : "text-gray-500 opacity-0 group-hover:opacity-100 hover:bg-white hover:text-gray-800"
+                          }`}
+                          aria-label="More options"
                         >
-                          <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
-                        </svg>
-                      </div>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            className="h-5 w-5"
+                          >
+                            <circle cx="12" cy="5" r="1.8" />
+                            <circle cx="12" cy="12" r="1.8" />
+                            <circle cx="12" cy="19" r="1.8" />
+                          </svg>
+                        </button>
 
-                      {/* text */}
-                      <div className="flex-1">
-                        <div className="text-[14px] font-medium text-gray-900">
-                          {chat.title}
-                        </div>
-
-                        <div className="mt-1 text-[12px] text-gray-500">
-                          {chat.date}
-                        </div>
+                        {openMenuId === chat.id && (
+                          <div className="absolute right-0 top-9 z-20 min-w-[110px] overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(null);
+                                onDelete?.(chat);
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="h-4 w-4"
+                              >
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4h8v2" />
+                                <path d="M19 6l-1 14H6L5 6" />
+                                <path d="M10 11v6" />
+                                <path d="M14 11v6" />
+                              </svg>
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               </div>

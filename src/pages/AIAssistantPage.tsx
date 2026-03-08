@@ -18,9 +18,20 @@ interface Message {
   timestamp: string;
 }
 
+interface Conversation {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: Message[];
+}
+
 const API_BASE =
   (import.meta as any).env?.VITE_API_URL?.toString()?.trim() ||
   "http://localhost:8000";
+
+const CONVERSATIONS_KEY = "scholarcheck_ai_conversations";
+const ACTIVE_CONVERSATION_KEY = "scholarcheck_ai_active_conversation_id";
 
 function nowTime() {
   return new Date().toLocaleTimeString("en-US", {
@@ -30,7 +41,36 @@ function nowTime() {
   });
 }
 
-function formatDateLabel(date: Date) {
+function createWelcomeMessage(): Message {
+  return {
+    id: `msg_${Date.now()}`,
+    type: "bot",
+    content:
+      "Hello! I'm your scholarship assistant. I can help you understand scholarship requirements, improve your eligibility, and answer questions about the application process. How can I assist you today?",
+    timestamp: nowTime(),
+  };
+}
+
+function createNewConversation(): Conversation {
+  const nowIso = new Date().toISOString();
+
+  return {
+    id: `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    title: "New Chat",
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    messages: [createWelcomeMessage()],
+  };
+}
+
+function truncateTitle(text: string, max = 60) {
+  const clean = text.trim().replace(/\s+/g, " ");
+  if (clean.length <= max) return clean;
+  return `${clean.slice(0, max).trim()}...`;
+}
+
+function formatDateLabel(dateString: string) {
+  const date = new Date(dateString);
   return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -46,7 +86,8 @@ function isSameDay(a: Date, b: Date) {
   );
 }
 
-function getGroupLabel(date: Date) {
+function getGroupLabel(dateString: string) {
+  const date = new Date(dateString);
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
@@ -64,19 +105,42 @@ function getGroupLabel(date: Date) {
 }
 
 export default function AIAssistantPage() {
-  const [messages, setMessages] = useState<Message[]>(() => {
-    const saved = localStorage.getItem("chatHistory");
-    if (saved) return JSON.parse(saved);
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
+    const saved = localStorage.getItem(CONVERSATIONS_KEY);
 
-    return [
-      {
-        id: "1",
-        type: "bot",
-        content:
-          "Hello! I'm your scholarship assistant. I can help you understand scholarship requirements, improve your eligibility, and answer questions about the application process. How can I assist you today?",
-        timestamp: nowTime(),
-      },
-    ];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as Conversation[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (error) {
+        console.error("Failed to parse saved conversations:", error);
+      }
+    }
+
+    return [createNewConversation()];
+  });
+
+  const [activeConversationId, setActiveConversationId] = useState<string>(() => {
+    const savedActiveId = localStorage.getItem(ACTIVE_CONVERSATION_KEY);
+
+    if (savedActiveId) return savedActiveId;
+
+    const savedConversations = localStorage.getItem(CONVERSATIONS_KEY);
+    if (savedConversations) {
+      try {
+        const parsed = JSON.parse(savedConversations) as Conversation[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed[0].id;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const initial = createNewConversation();
+    return initial.id;
   });
 
   const [inputValue, setInputValue] = useState("");
@@ -86,15 +150,49 @@ export default function AIAssistantPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (!conversations.length) {
+      const fresh = createNewConversation();
+      setConversations([fresh]);
+      setActiveConversationId(fresh.id);
+      return;
+    }
+
+    const exists = conversations.some((conv) => conv.id === activeConversationId);
+    if (!exists) {
+      setActiveConversationId(conversations[0].id);
+    }
+  }, [conversations, activeConversationId]);
 
   useEffect(() => {
-    localStorage.setItem("chatHistory", JSON.stringify(messages));
-  }, [messages]);
+    localStorage.setItem(CONVERSATIONS_KEY, JSON.stringify(conversations));
+  }, [conversations]);
 
-  const addMessage = (msg: Message) => {
-    setMessages((prev) => [...prev, msg]);
+  useEffect(() => {
+    if (activeConversationId) {
+      localStorage.setItem(ACTIVE_CONVERSATION_KEY, activeConversationId);
+    }
+  }, [activeConversationId]);
+
+  const activeConversation =
+    conversations.find((conv) => conv.id === activeConversationId) ||
+    conversations[0];
+
+  const messages = activeConversation?.messages ?? [];
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, activeConversationId]);
+
+  const updateActiveConversation = (
+    updater: (conversation: Conversation) => Conversation
+  ) => {
+    setConversations((prev) =>
+      prev.map((conversation) =>
+        conversation.id === activeConversationId
+          ? updater(conversation)
+          : conversation
+      )
+    );
   };
 
   const callChatApi = async (userMessage: string): Promise<string> => {
@@ -131,99 +229,119 @@ export default function AIAssistantPage() {
 
   const handleSend = async () => {
     const text = inputValue.trim();
-    if (!text || isSending) return;
+    if (!text || isSending || !activeConversation) return;
+
+    const nowIso = new Date().toISOString();
 
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       type: "user",
       content: text,
       timestamp: nowTime(),
     };
 
-    addMessage(userMsg);
-    setInputValue("");
-    setIsSending(true);
+    const typingId = `msg_${Date.now() + 1}_${Math.random()
+      .toString(36)
+      .slice(2, 7)}`;
 
-    const typingId = (Date.now() + 1).toString();
-
-    addMessage({
+    const typingMsg: Message = {
       id: typingId,
       type: "bot",
       content: "Typing...",
       timestamp: nowTime(),
-    });
+    };
+
+    const shouldSetTitle = activeConversation.title === "New Chat";
+
+    updateActiveConversation((conversation) => ({
+      ...conversation,
+      title: shouldSetTitle ? truncateTitle(text) : conversation.title,
+      updatedAt: nowIso,
+      messages: [...conversation.messages, userMsg, typingMsg],
+    }));
+
+    setInputValue("");
+    setIsSending(true);
 
     try {
       const answer = await callChatApi(text);
 
-      setMessages((prev) =>
-        prev.map((m) => (m.id === typingId ? { ...m, content: answer } : m))
-      );
+      updateActiveConversation((conversation) => ({
+        ...conversation,
+        updatedAt: new Date().toISOString(),
+        messages: conversation.messages.map((message) =>
+          message.id === typingId ? { ...message, content: answer } : message
+        ),
+      }));
     } catch {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === typingId
+      updateActiveConversation((conversation) => ({
+        ...conversation,
+        updatedAt: new Date().toISOString(),
+        messages: conversation.messages.map((message) =>
+          message.id === typingId
             ? {
-                ...m,
+                ...message,
                 content:
                   "⚠️ Cannot connect to IskoBot backend. Make sure FastAPI is running on http://localhost:8000.",
               }
-            : m
-        )
-      );
+            : message
+        ),
+      }));
     } finally {
       setIsSending(false);
     }
   };
 
   const handleNewChat = () => {
-    const firstMessage: Message = {
-      id: Date.now().toString(),
-      type: "bot",
-      content:
-        "Hello! I'm your scholarship assistant. I can help you understand scholarship requirements, improve your eligibility, and answer questions about the application process. How can I assist you today?",
-      timestamp: nowTime(),
-    };
+    const newConversation = createNewConversation();
 
-    setMessages([firstMessage]);
-    localStorage.setItem("chatHistory", JSON.stringify([firstMessage]));
+    setConversations((prev) => [newConversation, ...prev]);
+    setActiveConversationId(newConversation.id);
+    setInputValue("");
+    setIsHistoryOpen(false);
+  };
+
+  const handleSelectHistory = (item: AIHistoryItem) => {
+    setActiveConversationId(item.id);
+    setInputValue("");
+    setIsHistoryOpen(false);
+  };
+
+  const handleDeleteConversation = (item: AIHistoryItem) => {
+    const remaining = conversations.filter(
+      (conversation) => conversation.id !== item.id
+    );
+
+    if (remaining.length === 0) {
+      const fresh = createNewConversation();
+      setConversations([fresh]);
+      setActiveConversationId(fresh.id);
+      setInputValue("");
+      return;
+    }
+
+    setConversations(remaining);
+
+    if (item.id === activeConversationId) {
+      setActiveConversationId(remaining[0].id);
+      setInputValue("");
+    }
   };
 
   const historyItems = useMemo<AIHistoryItem[]>(() => {
-    const now = new Date();
-
-    const userMessages = messages.filter(
-      (message) => message.type === "user" && message.content.trim()
-    );
-
-    if (userMessages.length === 0) {
-      return [
-        {
-          id: "default-history-1",
-          title: "What are the requirements for the scholarship?",
-          date: formatDateLabel(now),
-          group: "TODAY",
-          active: true,
-        },
-      ];
-    }
-
-    return userMessages
-      .slice()
-      .reverse()
-      .map((message, index) => ({
-        id: message.id,
-        title: message.content,
-        date: formatDateLabel(now),
-        group: getGroupLabel(now),
-        active: index === 0,
+    return [...conversations]
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      )
+      .map((conversation) => ({
+        id: conversation.id,
+        title: conversation.title || "New Chat",
+        date: formatDateLabel(conversation.updatedAt),
+        group: getGroupLabel(conversation.updatedAt),
+        active: conversation.id === activeConversationId,
       }));
-  }, [messages]);
-
-  const handleSelectHistory = (item: AIHistoryItem) => {
-    setInputValue(item.title);
-    setIsHistoryOpen(false);
-  };
+  }, [conversations, activeConversationId]);
 
   return (
     <Layout>
@@ -245,7 +363,8 @@ export default function AIAssistantPage() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={handleNewChat}
-                className="flex items-center gap-2 rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800"
+                className="flex items-center gap-2 rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-[1px] hover:bg-green-800 active:scale-95"
+                type="button"
               >
                 <span className="text-[16px] leading-none">+</span>
                 <span>New Chat</span>
@@ -253,7 +372,8 @@ export default function AIAssistantPage() {
 
               <button
                 onClick={() => setIsHistoryOpen(true)}
-                className="flex items-center gap-2 rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800"
+                className="flex items-center gap-2 rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-[1px] hover:bg-green-800 active:scale-95"
+                type="button"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -340,6 +460,7 @@ export default function AIAssistantPage() {
                     onClick={handleSend}
                     disabled={!inputValue.trim() || isSending}
                     className="flex h-11 items-center gap-2 rounded-md bg-green-800 px-5 text-sm font-semibold text-white hover:bg-green-900 disabled:opacity-50"
+                    type="button"
                   >
                     <img src={SendImg} alt="" className="h-4 w-4" />
                     {isSending ? "Sending..." : "Send"}
@@ -359,6 +480,7 @@ export default function AIAssistantPage() {
             onClose={() => setIsHistoryOpen(false)}
             items={historyItems}
             onSelect={handleSelectHistory}
+            onDelete={handleDeleteConversation}
           />
         </div>
       </div>
