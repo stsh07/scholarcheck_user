@@ -1,29 +1,49 @@
 // src/hooks/useAutoLogout.ts
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { silentRefresh } from "../api/http";
 
-const INACTIVITY_LIMIT_MS = 15 * 60 * 1000; 
+const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
+const REFRESH_CHECK_MS = 4 * 60 * 1000;
+
+function hasSession() {
+  const token = localStorage.getItem("scholarcheck_accessToken");
+  const refreshToken = localStorage.getItem("scholarcheck_refreshToken");
+  const user = localStorage.getItem("scholarcheck_user");
+  return !!token && !!refreshToken && !!user;
+}
+
+function clearAuth() {
+  localStorage.removeItem("scholarcheck_accessToken");
+  localStorage.removeItem("scholarcheck_refreshToken");
+  localStorage.removeItem("scholarcheck_user");
+}
 
 export default function useAutoLogout(redirectPath: string) {
   const navigate = useNavigate();
+  const lastActivityRef = useRef<number>(Date.now());
+  const timeoutIdRef = useRef<number | null>(null);
 
   useEffect(() => {
-    let timeoutId: number | undefined;
-
-    const clearAuth = () => {
-      localStorage.removeItem("scholarcheck_accessToken");
-      localStorage.removeItem("scholarcheck_refreshToken");
-      localStorage.removeItem("scholarcheck_user");
-    };
-
     const logout = () => {
       clearAuth();
       navigate(redirectPath, { replace: true });
     };
 
-    const resetTimer = () => {
-      if (timeoutId) window.clearTimeout(timeoutId);
-      timeoutId = window.setTimeout(logout, INACTIVITY_LIMIT_MS);
+    const resetLogoutTimer = () => {
+      if (timeoutIdRef.current) {
+        window.clearTimeout(timeoutIdRef.current);
+      }
+
+      timeoutIdRef.current = window.setTimeout(() => {
+        logout();
+      }, INACTIVITY_LIMIT_MS);
+    };
+
+    const onActivity = () => {
+      if (!hasSession()) return;
+      lastActivityRef.current = Date.now();
+      resetLogoutTimer();
     };
 
     const events: Array<keyof WindowEventMap> = [
@@ -32,36 +52,54 @@ export default function useAutoLogout(redirectPath: string) {
       "keydown",
       "scroll",
       "touchstart",
+      "click",
     ];
 
-    const hasSession = () => {
-      const token = localStorage.getItem("scholarcheck_accessToken");
-      const user = localStorage.getItem("scholarcheck_user");
-      return !!token && !!user;
-    };
+    events.forEach((evt) =>
+      window.addEventListener(evt, onActivity, { passive: true })
+    );
 
-    const onActivity = () => {
+    if (hasSession()) {
+      lastActivityRef.current = Date.now();
+      resetLogoutTimer();
+    }
+
+    const refreshInterval = window.setInterval(async () => {
       if (!hasSession()) return;
-      resetTimer();
-    };
 
-    events.forEach((evt) => window.addEventListener(evt, onActivity, { passive: true }));
+      const inactiveFor = Date.now() - lastActivityRef.current;
+      if (inactiveFor >= INACTIVITY_LIMIT_MS) {
+        logout();
+        return;
+      }
 
-    if (hasSession()) resetTimer();
+      const refreshed = await silentRefresh();
+      if (!refreshed) {
+        logout();
+      }
+    }, REFRESH_CHECK_MS);
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key === "scholarcheck_accessToken" || e.key === "scholarcheck_user") {
-        const token = localStorage.getItem("scholarcheck_accessToken");
-        const user = localStorage.getItem("scholarcheck_user");
-        if (!token || !user) {
+      if (
+        e.key === "scholarcheck_accessToken" ||
+        e.key === "scholarcheck_refreshToken" ||
+        e.key === "scholarcheck_user"
+      ) {
+        if (!hasSession()) {
           navigate(redirectPath, { replace: true });
         }
       }
     };
+
     window.addEventListener("storage", onStorage);
 
     return () => {
-      if (timeoutId) window.clearTimeout(timeoutId);
+      if (timeoutIdRef.current) {
+        window.clearTimeout(timeoutIdRef.current);
+      }
+
+      window.clearInterval(refreshInterval);
+
       events.forEach((evt) => window.removeEventListener(evt, onActivity));
       window.removeEventListener("storage", onStorage);
     };

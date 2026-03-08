@@ -1,11 +1,13 @@
 // src/pages/AIAssistantPage.tsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Layout } from "../components/Layout";
 import SendImg from "../img/Sent.png";
 import BotImg from "../img/Chatbot.png";
-import ChatHistoryModal from "../modals/ChatHistoryModal";
+import AIHistoryPanel, {
+  type AIHistoryItem,
+} from "../components/AIHistoryPanel";
 
-export function cn(...classes: (string | undefined | false)[]) {
+function cn(...classes: (string | undefined | false)[]) {
   return classes.filter(Boolean).join(" ");
 }
 
@@ -24,15 +26,48 @@ function nowTime() {
   return new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
-    second: "2-digit",
     hour12: true,
   });
+}
+
+function formatDateLabel(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function isSameDay(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function getGroupLabel(date: Date) {
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (isSameDay(date, today)) return "TODAY";
+  if (isSameDay(date, yesterday)) return "YESTERDAY";
+
+  return date
+    .toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    })
+    .toUpperCase();
 }
 
 export default function AIAssistantPage() {
   const [messages, setMessages] = useState<Message[]>(() => {
     const saved = localStorage.getItem("chatHistory");
     if (saved) return JSON.parse(saved);
+
     return [
       {
         id: "1",
@@ -58,11 +93,12 @@ export default function AIAssistantPage() {
     localStorage.setItem("chatHistory", JSON.stringify(messages));
   }, [messages]);
 
-  const addMessage = (msg: Message) => setMessages((prev) => [...prev, msg]);
+  const addMessage = (msg: Message) => {
+    setMessages((prev) => [...prev, msg]);
+  };
 
   const callChatApi = async (userMessage: string): Promise<string> => {
     const endpoints = [`${API_BASE}/api/chat`, `${API_BASE}/chat`];
-
     let lastErr: any = null;
 
     for (const url of endpoints) {
@@ -79,6 +115,7 @@ export default function AIAssistantPage() {
         }
 
         const data = await res.json();
+
         return (
           data.answer?.trim() ||
           "Sorry, I couldn’t generate a response. Please try again."
@@ -108,6 +145,7 @@ export default function AIAssistantPage() {
     setIsSending(true);
 
     const typingId = (Date.now() + 1).toString();
+
     addMessage({
       id: typingId,
       type: "bot",
@@ -138,114 +176,190 @@ export default function AIAssistantPage() {
     }
   };
 
+  const handleNewChat = () => {
+    const firstMessage: Message = {
+      id: Date.now().toString(),
+      type: "bot",
+      content:
+        "Hello! I'm your scholarship assistant. I can help you understand scholarship requirements, improve your eligibility, and answer questions about the application process. How can I assist you today?",
+      timestamp: nowTime(),
+    };
+
+    setMessages([firstMessage]);
+    localStorage.setItem("chatHistory", JSON.stringify([firstMessage]));
+  };
+
+  const historyItems = useMemo<AIHistoryItem[]>(() => {
+    const now = new Date();
+
+    const userMessages = messages.filter(
+      (message) => message.type === "user" && message.content.trim()
+    );
+
+    if (userMessages.length === 0) {
+      return [
+        {
+          id: "default-history-1",
+          title: "What are the requirements for the scholarship?",
+          date: formatDateLabel(now),
+          group: "TODAY",
+          active: true,
+        },
+      ];
+    }
+
+    return userMessages
+      .slice()
+      .reverse()
+      .map((message, index) => ({
+        id: message.id,
+        title: message.content,
+        date: formatDateLabel(now),
+        group: getGroupLabel(now),
+        active: index === 0,
+      }));
+  }, [messages]);
+
+  const handleSelectHistory = (item: AIHistoryItem) => {
+    setInputValue(item.title);
+    setIsHistoryOpen(false);
+  };
+
   return (
     <Layout>
-      {/* Page background like the screenshot */}
-      <div className="min-h-[calc(100vh-64px)] bg-emerald-50">
-        {/* Header */}
-        <div className="px-4 pt-6 md:px-8">
-          <h1 className="text-[26px] md:text-[32px] font-bold text-gray-900">
-            AI Scholarship Assistant
-          </h1>
+      <div className="min-h-[calc(100vh-64px)] bg-[#eef8f1]">
+        <div className="px-1 pb-5 pt-4 md:px-1 md:pt-5">
+          {/* Header */}
+          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="text-[26px] font-bold text-gray-900">
+                AI Scholarship Assistant
+              </h1>
 
-          <p className="mt-1 text-[15px] md:text-[16px] text-gray-600">
-            Get personalized guidance and answers to your questions
-          </p>
-        </div>
-
-        {/* Chat Card */}
-        <div className="px-4 pb-8 pt-5 md:px-8">
-          <div className="mx-auto w-full max-w-6xl">
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-              {/* Use flex column so input stays pinned at bottom */}
-              <div className="flex h-[70vh] min-h-[560px] flex-col md:h-[72vh]">
-                {/* Messages area */}
-                <div className="flex-1 overflow-y-auto px-5 py-5 md:px-8 md:py-7">
-                  <div className="space-y-5">
-                    {messages.map((message) => {
-                      const isUser = message.type === "user";
-
-                      return (
-                        <div
-                          key={message.id}
-                          className={cn(
-                            "flex items-start gap-3",
-                            isUser ? "justify-end" : "justify-start"
-                          )}
-                        >
-                          {!isUser && (
-                            <div className="mt-[2px] flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 overflow-hidden">
-                              <img
-                                src={BotImg}
-                                alt="Bot"
-                                className="h-full w-full object-cover"
-                              />
-                            </div>
-                          )}
-
-                          <div
-                            className={cn(
-                              "max-w-[680px] rounded-2xl px-5 py-4 shadow-[0_1px_0_rgba(0,0,0,0.02)]",
-                              isUser
-                                ? "bg-emerald-100 text-gray-900"
-                                : "bg-gray-100 text-gray-900"
-                            )}
-                          >
-                            <p className="text-[14px] leading-relaxed md:text-[15px]">
-                              {message.content}
-                            </p>
-
-                            <div className="mt-3 text-[12px] text-gray-500">
-                              {message.timestamp}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    <div ref={messagesEndRef} />
-                  </div>
-                </div>
-
-                {/* Input area */}
-                <div className="border-t border-gray-200 bg-white px-4 py-4 md:px-6">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="text"
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                      placeholder="Ask me anything about the Alagang Arenas Scholarship..."
-                      className="h-12 flex-1 rounded-md border border-gray-200 px-4 text-[14px] outline-none placeholder:text-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 disabled:bg-gray-50 md:text-[15px]"
-                      disabled={isSending}
-                    />
-
-                    <button
-                      onClick={handleSend}
-                      disabled={!inputValue.trim() || isSending}
-                      className="flex h-12 items-center justify-center gap-2 rounded-md bg-green-900 px-6 text-[14px] font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50"
-                      aria-label="Send message"
-                      title="Send"
-                    >
-                      <img src={SendImg} alt="" className="h-4 w-4" />
-                      <span>{isSending ? "Sending..." : "Send"}</span>
-                    </button>
-                  </div>
-
-                  <p className="mt-3 text-center text-[12px] text-gray-500">
-                    IskoBot only provides information about scholarship from
-                    Alagang Arenas. Check important info.
-                  </p>
-                </div>
-              </div>
+              <p className="mt-1 text-[14px] text-gray-600">
+                Get personalized guidance and answers to your questions
+              </p>
             </div>
 
-            {/* (Optional) You can wire a button somewhere to open this modal.
-                Keeping it here so your current feature still works. */}
-            <ChatHistoryModal
-              isOpen={isHistoryOpen}
-              onClose={() => setIsHistoryOpen(false)}
-            />
+            {/* Buttons */}
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleNewChat}
+                className="flex items-center gap-2 rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800"
+              >
+                <span className="text-[16px] leading-none">+</span>
+                <span>New Chat</span>
+              </button>
+
+              <button
+                onClick={() => setIsHistoryOpen(true)}
+                className="flex items-center gap-2 rounded-md bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="h-4 w-4"
+                >
+                  <path d="M12 8v4l3 3" />
+                  <path d="M3.05 11a9 9 0 1 1 .5 4" />
+                  <path d="M3 4v5h5" />
+                </svg>
+                <span>History</span>
+              </button>
+            </div>
           </div>
+
+          {/* Chat Card */}
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className="flex h-[70vh] min-h-[550px] flex-col">
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto px-4 py-6 md:px-5">
+                <div className="space-y-5">
+                  {messages.map((message) => {
+                    const isUser = message.type === "user";
+
+                    return (
+                      <div
+                        key={message.id}
+                        className={cn(
+                          "flex items-start gap-3",
+                          isUser ? "justify-end" : "justify-start"
+                        )}
+                      >
+                        {!isUser && (
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-100">
+                            <img
+                              src={BotImg}
+                              alt="Bot"
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        )}
+
+                        <div
+                          className={cn(
+                            "max-w-[420px] rounded-xl px-4 py-3",
+                            isUser
+                              ? "bg-emerald-100 text-gray-900"
+                              : "bg-gray-100 text-gray-800"
+                          )}
+                        >
+                          <p className="text-[14px] leading-relaxed">
+                            {message.content}
+                          </p>
+
+                          <div className="mt-2 text-[11px] text-gray-500">
+                            {message.timestamp}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+
+              {/* Input */}
+              <div className="border-t border-gray-200 bg-gray-50 px-4 py-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                    placeholder="Ask me anything about the Alagang Arenas Scholarship..."
+                    disabled={isSending}
+                    className="h-11 flex-1 rounded-md border border-gray-200 bg-white px-4 text-sm outline-none focus:border-green-600"
+                  />
+
+                  <button
+                    onClick={handleSend}
+                    disabled={!inputValue.trim() || isSending}
+                    className="flex h-11 items-center gap-2 rounded-md bg-green-800 px-5 text-sm font-semibold text-white hover:bg-green-900 disabled:opacity-50"
+                  >
+                    <img src={SendImg} alt="" className="h-4 w-4" />
+                    {isSending ? "Sending..." : "Send"}
+                  </button>
+                </div>
+
+                <p className="mt-3 text-center text-[11px] text-gray-500">
+                  IskoBot only provides information about scholarship from
+                  Alagang Arenas. Check important info.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <AIHistoryPanel
+            isOpen={isHistoryOpen}
+            onClose={() => setIsHistoryOpen(false)}
+            items={historyItems}
+            onSelect={handleSelectHistory}
+          />
         </div>
       </div>
     </Layout>

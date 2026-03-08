@@ -37,7 +37,7 @@ export async function login(payload: { email: string; password: string }) {
   });
 }
 
-/*  Login Approval Flow */
+/* Login Approval Flow */
 
 export async function loginStart(payload: { email: string; password: string }) {
   return apiFetch<{ message: string; challengeId: string }>(
@@ -65,6 +65,35 @@ export async function loginComplete(payload: { challengeId: string }) {
   }>("/api/auth/login-complete", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+/* Session */
+
+export async function refreshAccessToken(refreshToken: string) {
+  return apiFetch<{ accessToken: string }>("/api/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken }),
+  });
+}
+
+export async function logoutApi(refreshToken: string) {
+  return apiFetch<{ message: string }>("/api/auth/logout", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken }),
+  });
+}
+
+export async function getMe() {
+  return apiFetch<{
+    id: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role?: string;
+    createdAt: string;
+  }>("/api/auth/me", {
+    method: "GET",
   });
 }
 

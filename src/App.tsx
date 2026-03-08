@@ -14,8 +14,9 @@ import useAutoLogout from "./hooks/useAutoLogout";
 
 function isLoggedIn() {
   const token = localStorage.getItem("scholarcheck_accessToken");
+  const refreshToken = localStorage.getItem("scholarcheck_refreshToken");
   const user = localStorage.getItem("scholarcheck_user");
-  return !!token && !!user;
+  return !!token && !!refreshToken && !!user;
 }
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
@@ -114,7 +115,6 @@ function AppRoutes() {
         }
       />
 
-      {/* fallback */}
       <Route path="*" element={<Navigate to={isLoggedIn() ? "/home" : "/login"} replace />} />
     </Routes>
   );

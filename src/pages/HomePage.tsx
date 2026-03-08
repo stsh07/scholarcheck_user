@@ -103,7 +103,7 @@ export default function HomePage() {
               {greeting}, {firstName}!
             </h1>
 
-            <p className="mt-1 text-[13px] font-semibold text-[#6b7280]">
+            <p className="mt-1 text-[14px] text-gray-600">
               Track your District 3 scholarship from Alagang Arenas and stay
               updated on your educational assistance.
             </p>

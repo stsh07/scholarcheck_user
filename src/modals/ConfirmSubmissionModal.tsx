@@ -1,4 +1,3 @@
-// src/modals/ConfirmSubmissionModal.tsx
 import "react";
 
 type Props = {
@@ -38,34 +37,25 @@ export default function ConfirmSubmissionModal({
         };
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/45"
-        onMouseDown={(e) => {
-          if (e.target === e.currentTarget && !loading) onClose();
-        }}
-      />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 px-4">
+      <div className="relative w-full max-w-[440px] rounded-md bg-white px-6 py-7 shadow-xl">
+        <div className="text-center">
+          <h2 className="text-[16px] font-bold text-green-800">{config.title}</h2>
 
-      <div className="relative mx-4 w-full max-w-4xl rounded-xl bg-white shadow-2xl">
-        <div className="p-8 md:p-10">
-          <h2 className="text-[18px] font-semibold text-gray-900 md:text-[20px]">
-            {config.title}
-          </h2>
-
-          <p className="mt-4 text-[14px] leading-relaxed text-gray-700 md:text-[15px]">
+          <p className="mt-4 text-[13px] leading-relaxed text-gray-600">
             {config.message}
           </p>
 
-          <div className="mt-8 flex flex-col items-stretch justify-center gap-4 sm:flex-row sm:items-center">
+          <div className="mt-6 flex items-center justify-center gap-3">
             <button
               type="button"
               disabled={loading}
               onClick={onConfirm}
               className={[
-                "w-full rounded-lg px-10 py-3 text-[14px] font-semibold text-white transition-colors sm:w-auto",
+                "inline-flex h-[32px] min-w-[92px] items-center justify-center rounded-md px-5 text-[12px] font-semibold text-white",
                 loading
-                  ? "cursor-not-allowed bg-emerald-700/70"
-                  : "bg-emerald-700 hover:bg-emerald-800",
+                  ? "cursor-not-allowed bg-green-800/70"
+                  : "bg-green-800 hover:bg-green-900",
               ].join(" ")}
             >
               {loading ? config.loadingText : config.confirmText}
@@ -76,10 +66,10 @@ export default function ConfirmSubmissionModal({
               disabled={loading}
               onClick={onClose}
               className={[
-                "w-full rounded-lg px-10 py-3 text-[14px] font-semibold text-white transition-colors sm:w-auto",
+                "inline-flex h-[32px] min-w-[76px] items-center justify-center rounded-md px-5 text-[12px] font-semibold text-white",
                 loading
-                  ? "cursor-not-allowed bg-red-600/70"
-                  : "bg-red-600 hover:bg-red-700",
+                  ? "cursor-not-allowed bg-gray-400/70"
+                  : "bg-gray-400 hover:bg-gray-500",
               ].join(" ")}
             >
               {config.cancelText}
