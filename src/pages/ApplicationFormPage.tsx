@@ -10,6 +10,7 @@ import {
   updateMyApplication,
   type ApplicationDto,
 } from "../api/applications";
+import { getApplicationsOpen } from "../api/settings";
 
 type FormState = {
   firstName: string;
@@ -614,6 +615,27 @@ function InfoCircleIcon() {
   );
 }
 
+function AdvisoryInfoIcon() {
+  return (
+    <svg
+      className="mt-[2px] h-[18px] w-[18px] shrink-0 text-[#2563EB]"
+      viewBox="0 0 20 20"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <circle cx="10" cy="10" r="7.25" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M10 8V12"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <circle cx="10" cy="5.7" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 function ArrowLeftIcon() {
   return (
     <svg
@@ -671,6 +693,146 @@ function CalendarIcon() {
   );
 }
 
+function SuccessStatusIcon() {
+  return (
+    <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-[#15803D] text-white">
+      <svg
+        className="h-[16px] w-[16px]"
+        viewBox="0 0 20 20"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path
+          d="M5 10.5L8.2 13.5L15 6.5"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
+  );
+}
+
+function ErrorStatusIcon() {
+  return (
+    <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-[#DC2626] text-white">
+      <svg
+        className="h-[15px] w-[15px]"
+        viewBox="0 0 20 20"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <path d="M6 6L14 14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M14 6L6 14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
+function PendingStatusIcon() {
+  return (
+    <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-[#D08A00] text-white">
+      <svg
+        className="h-[16px] w-[16px]"
+        viewBox="0 0 20 20"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <circle cx="10" cy="10" r="6.8" stroke="currentColor" strokeWidth="1.8" />
+        <path
+          d="M10 6.4V10L12.7 11.6"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
+  );
+}
+
+function ApplicationStatusBanner({ status }: { status: string }) {
+  if (status === "Approved") {
+    return (
+      <div className="mb-6 rounded-[8px] border border-[#8FD19E] bg-[#EAF7EE] px-6 py-5">
+        <div className="flex items-start gap-3">
+          <SuccessStatusIcon />
+          <div>
+            <h3 className="text-[22px] font-bold leading-tight text-[#166534]">
+              Congratulations! Your Application Has Been Approved!
+            </h3>
+            <p className="mt-1 text-[13px] leading-relaxed text-[#166534]">
+              Your scholarship application has been reviewed and approved. You will receive
+              further instructions via email or phone within 3–5 business days regarding the
+              next steps and disbursement schedule.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "Declined") {
+    return (
+      <div className="mb-6 rounded-[8px] border border-[#F2B9B9] bg-[#FDEEEE] px-6 py-5">
+        <div className="flex items-start gap-3">
+          <ErrorStatusIcon />
+          <div>
+            <h3 className="text-[22px] font-bold leading-tight text-[#DC2626]">
+              Application Declined
+            </h3>
+            <p className="mt-1 text-[13px] leading-relaxed text-[#DC2626]">
+              Unfortunately, your scholarship application was not approved at this time. This
+              could be due to incomplete documentation, eligibility requirements not being met,
+              or limited scholarship slots.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-6 rounded-[8px] border border-[#E7D27C] bg-[#FBF7E8] px-6 py-5">
+      <div className="flex items-start gap-3">
+        <PendingStatusIcon />
+        <div>
+          <h3 className="text-[22px] font-bold leading-tight text-[#A16207]">
+            Application Under Review
+          </h3>
+          <p className="mt-1 text-[13px] leading-relaxed text-[#A16207]">
+            Your application has been successfully submitted and is currently under review by
+            our scholarship committee. We appreciate your patience during this process.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ApplicationsClosedBanner() {
+  return (
+    <div className="mb-6 rounded-[8px] border border-[#BFDBFE] bg-[#EFF6FF] px-6 py-5">
+      <div className="flex items-start gap-3">
+        <AdvisoryInfoIcon />
+        <div>
+          <h3 className="text-[22px] font-bold leading-tight text-[#2563EB]">
+            Applications are currently closed
+          </h3>
+          <p className="mt-1 text-[13px] leading-relaxed text-[#2563EB]">
+            We are no longer accepting new applications for this scholarship period. Please
+            check back later for the next application cycle.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CustomSelect({
   name,
   value,
@@ -723,9 +885,7 @@ function CustomSelect({
               : "border-gray-300 hover:border-green-700",
         ].join(" ")}
       >
-        <span className={value ? "text-gray-900" : "text-gray-500"}>
-          {value || placeholder}
-        </span>
+        <span className={value ? "text-gray-900" : "text-gray-500"}>{value || placeholder}</span>
 
         <span className="ml-3 flex items-center">
           <ChevronDownIcon open={open} />
@@ -843,7 +1003,7 @@ function CustomDobPicker({
       years.push(year);
     }
     return years;
-  }, [min]);
+  }, [minDate, today]);
 
   const calendarDays = Array.from({ length: 42 }, (_, index) => {
     const dayIndex = index - startDay + 1;
@@ -1177,6 +1337,7 @@ export default function ApplicationFormPage() {
 
   const [existing, setExisting] = useState<ApplicationDto | null>(null);
   const [readOnly, setReadOnly] = useState(false);
+  const [applicationsOpen, setApplicationsOpen] = useState(true);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -1288,9 +1449,12 @@ export default function ApplicationFormPage() {
 
   const editAlreadyUsed = hasUsedOneEdit(existing);
   const canEditPending = !!existing && existing.status === "Pending";
-  const canEditOnce = canEditPending && !editAlreadyUsed;
-
-  const canModifyDocs = !readOnly && (!existing || (existing.status === "Pending" && !editAlreadyUsed));
+  const canEditOnce = applicationsOpen && canEditPending && !editAlreadyUsed;
+  const formLocked = readOnly || !applicationsOpen;
+  const canModifyDocs =
+    applicationsOpen &&
+    !readOnly &&
+    (!existing || (existing.status === "Pending" && !editAlreadyUsed));
 
   function openBanner(variant: "success" | "error" | "info", title: string, message: string) {
     setBannerVariant(variant);
@@ -1416,10 +1580,16 @@ export default function ApplicationFormPage() {
     async function load() {
       setLoading(true);
       setLoadError("");
+
       try {
-        const app = await getMyApplication();
+        const [app, openRes] = await Promise.all([
+          getMyApplication(),
+          getApplicationsOpen(),
+        ]);
+
         if (!mounted) return;
 
+        setApplicationsOpen(openRes.applicationsOpen);
         setExisting(app);
 
         if (app) {
@@ -1568,7 +1738,7 @@ export default function ApplicationFormPage() {
       | React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
       | { target: { name: string; value: string } }
   ) => {
-    if (readOnly) return;
+    if (formLocked) return;
 
     const { name, value } = e.target;
     const fieldName = name as TextFieldName;
@@ -1773,6 +1943,16 @@ export default function ApplicationFormPage() {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
+
+    if (!applicationsOpen) {
+      openBanner(
+        "info",
+        "Applications Closed",
+        "The scholarship application form is currently closed. Please wait for the next application cycle."
+      );
+      return;
+    }
+
     if (readOnly) return;
     if (!validateForm()) return;
 
@@ -1810,6 +1990,15 @@ export default function ApplicationFormPage() {
   };
 
   const handleConfirmSubmit = async () => {
+    if (!applicationsOpen) {
+      openBanner(
+        "info",
+        "Applications Closed",
+        "The scholarship application form is currently closed. Please wait for the next application cycle."
+      );
+      return;
+    }
+
     setSubmitLoading(true);
     try {
       submittedSnapshotRef.current = {
@@ -1844,7 +2033,7 @@ export default function ApplicationFormPage() {
   };
 
   const handleClear = () => {
-    if (readOnly || existing) return;
+    if (formLocked || existing) return;
 
     (Object.keys(objectUrlMapRef.current) as FileFieldName[]).forEach((field) => {
       revokeObjectUrl(field);
@@ -1889,18 +2078,7 @@ export default function ApplicationFormPage() {
     setReadOnly(true);
   };
 
-  const statusPillClass =
-    existing &&
-    [
-      "inline-flex items-center rounded-xl px-3 py-1.5 text-[12px] font-semibold",
-      existing.status === "Pending"
-        ? "bg-[#FFEDD4] text-[#AB2D00]"
-        : existing.status === "Approved"
-          ? "bg-[#DBFCE7] text-[#637C30]"
-          : "bg-[#FFE2E2] text-[#B51D37]",
-    ].join(" ");
-
-  const showActionButtons = !loading && !readOnly;
+  const showActionButtons = !loading && applicationsOpen && !readOnly;
   const isEditingExisting = !!existing;
 
   return (
@@ -1911,16 +2089,8 @@ export default function ApplicationFormPage() {
             <h1 className="text-[22px] font-bold text-[#111827] sm:text-[24px] md:text-[26px]">
               Application Form
             </h1>
-            <p className="mt-1 text-[14px] text-gray-600">
-              Keep your information up-to-date
-            </p>
+            <p className="mt-1 text-[14px] text-gray-600">Keep your information up-to-date</p>
           </div>
-
-          {existing && existing.status !== "Pending" && (
-            <div className="flex items-center gap-2">
-              <span className={statusPillClass || ""}>{existing.status}</span>
-            </div>
-          )}
         </div>
 
         {loading && <p className="mt-4 text-[14px] text-gray-600">Loading...</p>}
@@ -1938,8 +2108,12 @@ export default function ApplicationFormPage() {
           onSubmit={handleSubmit}
           className="w-full rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
         >
+          {!loading && !applicationsOpen && <ApplicationsClosedBanner />}
+
+          {existing && !loading && <ApplicationStatusBanner status={existing.status} />}
+
           {existing && !loading && (
-            <div className="mb-6 rounded-xl border border-[#e5e7eb] bg-[#f6f7f6] px-5 py-4">
+            <div className="mb-6 rounded-xl border border-[#E5E7EB] bg-[#F3F4F6] px-5 py-4">
               <div>
                 <div className="flex items-start gap-2">
                   <InfoCircleIcon />
@@ -1949,13 +2123,18 @@ export default function ApplicationFormPage() {
                 </div>
 
                 <div className="ml-[26px]">
-                  <p className="mt-2 text-[12px] leading-relaxed text-gray-600">
-                    You can edit your application once. Click the &quot;Edit Application&quot; button to make changes.
-                  </p>
-
-                  {editAlreadyUsed && (
-                    <p className="mt-1 text-[12px] text-gray-500">
-                      You have already used your one allowed edit.
+                  {!applicationsOpen ? (
+                    <p className="mt-2 text-[12px] leading-relaxed text-gray-600">
+                      Applications are currently closed. Editing is temporarily disabled.
+                    </p>
+                  ) : !editAlreadyUsed ? (
+                    <p className="mt-2 text-[12px] leading-relaxed text-gray-600">
+                      You can edit your application once. Click the &quot;Edit Application&quot;
+                      button to make changes.
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-[12px] leading-relaxed text-gray-600">
+                      You have already used your one-time edit. No further changes can be made.
                     </p>
                   )}
 
@@ -1973,21 +2152,6 @@ export default function ApplicationFormPage() {
             </div>
           )}
 
-          {existing && existing.status !== "Pending" && (
-            <div
-              className={[
-                "mb-6 rounded-lg border px-4 py-3 text-[13px] leading-relaxed",
-                existing.status === "Approved"
-                  ? "border-green-200 bg-green-50 text-green-800"
-                  : "border-red-200 bg-red-50 text-red-700",
-              ].join(" ")}
-            >
-              {existing.status === "Approved"
-                ? "Your application has been approved. Your account is now verified for scholarship processing."
-                : "Your application has been declined. If you believe this is a mistake, contact the scholarship office."}
-            </div>
-          )}
-
           <div>
             <div className={sectionTitle}>Personal Information</div>
 
@@ -2000,7 +2164,7 @@ export default function ApplicationFormPage() {
                     value={form.firstName}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                   />
                   {errors.firstName && <p className="mt-1 text-[12px] text-red-600">{errors.firstName}</p>}
                 </div>
@@ -2012,7 +2176,7 @@ export default function ApplicationFormPage() {
                     value={form.middleName}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                   />
                   {errors.middleName && <p className="mt-1 text-[12px] text-red-600">{errors.middleName}</p>}
                 </div>
@@ -2024,7 +2188,7 @@ export default function ApplicationFormPage() {
                     value={form.lastName}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                   />
                   {errors.lastName && <p className="mt-1 text-[12px] text-red-600">{errors.lastName}</p>}
                 </div>
@@ -2036,7 +2200,7 @@ export default function ApplicationFormPage() {
                     value={form.extension}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                   />
                 </div>
               </div>
@@ -2050,7 +2214,7 @@ export default function ApplicationFormPage() {
                     min={minDob}
                     max={maxDob}
                     onChange={handleChange}
-                    disabled={readOnly}
+                    disabled={formLocked}
                   />
                   {errors.dob && <p className="mt-1 text-[12px] text-red-600">{errors.dob}</p>}
                 </div>
@@ -2062,7 +2226,7 @@ export default function ApplicationFormPage() {
                     value={form.gender}
                     options={genders}
                     placeholder="Select option"
-                    disabled={readOnly}
+                    disabled={formLocked}
                     onChange={handleChange}
                   />
                   {errors.gender && <p className="mt-1 text-[12px] text-red-600">{errors.gender}</p>}
@@ -2074,13 +2238,7 @@ export default function ApplicationFormPage() {
               <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
                   <label className={labelBase}>Province *</label>
-                  <input
-                    name="province"
-                    value={form.province}
-                    readOnly
-                    disabled
-                    className={inputBase}
-                  />
+                  <input name="province" value={form.province} readOnly disabled className={inputBase} />
                   {errors.province && <p className="mt-1 text-[12px] text-red-600">{errors.province}</p>}
                 </div>
 
@@ -2091,7 +2249,7 @@ export default function ApplicationFormPage() {
                     value={form.municipality}
                     options={MUNICIPALITY_OPTIONS}
                     placeholder="Select Municipality"
-                    disabled={readOnly}
+                    disabled={formLocked}
                     onChange={handleChange}
                   />
                   {errors.municipality && (
@@ -2106,7 +2264,7 @@ export default function ApplicationFormPage() {
                     value={form.barangay}
                     options={barangayOptions}
                     placeholder={form.municipality ? "Select Barangay" : "Select municipality first"}
-                    disabled={readOnly || !form.municipality}
+                    disabled={formLocked || !form.municipality}
                     onChange={handleChange}
                   />
                   {errors.barangay && <p className="mt-1 text-[12px] text-red-600">{errors.barangay}</p>}
@@ -2121,7 +2279,7 @@ export default function ApplicationFormPage() {
                     value={form.phone}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                     inputMode="numeric"
                     maxLength={11}
                     placeholder="09XXXXXXXXX"
@@ -2137,7 +2295,7 @@ export default function ApplicationFormPage() {
                     value={form.email}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                   />
                   {errors.email && <p className="mt-1 text-[12px] text-red-600">{errors.email}</p>}
                 </div>
@@ -2159,7 +2317,7 @@ export default function ApplicationFormPage() {
                     value={form.fatherName}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                   />
                   {errors.fatherName && <p className="mt-1 text-[12px] text-red-600">{errors.fatherName}</p>}
                 </div>
@@ -2171,7 +2329,7 @@ export default function ApplicationFormPage() {
                     value={form.fatherOccupation}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                   />
                   {errors.fatherOccupation && (
                     <p className="mt-1 text-[12px] text-red-600">{errors.fatherOccupation}</p>
@@ -2187,7 +2345,7 @@ export default function ApplicationFormPage() {
                     value={form.fatherIncome}
                     options={fatherIncomeOptions}
                     placeholder="Select Monthly Income"
-                    disabled={readOnly}
+                    disabled={formLocked}
                     onChange={handleChange}
                   />
                   {errors.fatherIncome && <p className="mt-1 text-[12px] text-red-600">{errors.fatherIncome}</p>}
@@ -2200,7 +2358,7 @@ export default function ApplicationFormPage() {
                     value={form.fatherPhone}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                     inputMode="numeric"
                     maxLength={11}
                     placeholder="09XXXXXXXXX"
@@ -2223,7 +2381,7 @@ export default function ApplicationFormPage() {
                     value={form.motherName}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                   />
                   {errors.motherName && <p className="mt-1 text-[12px] text-red-600">{errors.motherName}</p>}
                 </div>
@@ -2235,7 +2393,7 @@ export default function ApplicationFormPage() {
                     value={form.motherOccupation}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                   />
                   {errors.motherOccupation && (
                     <p className="mt-1 text-[12px] text-red-600">{errors.motherOccupation}</p>
@@ -2251,7 +2409,7 @@ export default function ApplicationFormPage() {
                     value={form.motherIncome}
                     options={motherIncomeOptions}
                     placeholder="Select Monthly Income"
-                    disabled={readOnly}
+                    disabled={formLocked}
                     onChange={handleChange}
                   />
                   {errors.motherIncome && <p className="mt-1 text-[12px] text-red-600">{errors.motherIncome}</p>}
@@ -2264,7 +2422,7 @@ export default function ApplicationFormPage() {
                     value={form.motherPhone}
                     onChange={handleChange}
                     className={inputBase}
-                    disabled={readOnly}
+                    disabled={formLocked}
                     inputMode="numeric"
                     maxLength={11}
                     placeholder="09XXXXXXXXX"
@@ -2289,7 +2447,7 @@ export default function ApplicationFormPage() {
                     value={form.govGrant}
                     options={["Yes", "No"]}
                     placeholder="Select option"
-                    disabled={readOnly}
+                    disabled={formLocked}
                     onChange={handleChange}
                   />
                   {errors.govGrant && <p className="mt-1 text-[12px] text-red-600">{errors.govGrant}</p>}
@@ -2380,9 +2538,10 @@ export default function ApplicationFormPage() {
                 })}
               </div>
 
-              {!readOnly && canEditOnce && (
+              {!formLocked && canEditOnce && (
                 <p className="mt-3 text-[12px] text-gray-600">
-                  Click the file text to view it, or click ✕ to remove a selected document if you want to choose a different file.
+                  Click the file text to view it, or click ✕ to remove a selected document if you
+                  want to choose a different file.
                 </p>
               )}
             </div>
