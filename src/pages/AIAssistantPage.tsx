@@ -104,6 +104,108 @@ function getGroupLabel(dateString: string) {
     .toUpperCase();
 }
 
+function isBulletLine(line: string) {
+  return /^(\*|-|•)\s+/.test(line.trim());
+}
+
+function isNumberedLine(line: string) {
+  return /^\d+\.\s+/.test(line.trim());
+}
+
+function stripBulletPrefix(line: string) {
+  return line.trim().replace(/^(\*|-|•)\s+/, "");
+}
+
+function stripNumberPrefix(line: string) {
+  return line.trim().replace(/^\d+\.\s+/, "");
+}
+
+function FormattedMessageContent({ content }: { content: string }) {
+  const normalized = String(content || "").replace(/\r\n/g, "\n").trim();
+
+  if (!normalized) return null;
+
+  const lines = normalized.split("\n");
+  const elements: React.ReactNode[] = [];
+
+  let i = 0;
+  let key = 0;
+
+  while (i < lines.length) {
+    const current = lines[i].trim();
+
+    if (!current) {
+      i += 1;
+      continue;
+    }
+
+    // Bullet list block
+    if (isBulletLine(current)) {
+      const items: string[] = [];
+      while (i < lines.length && isBulletLine(lines[i].trim())) {
+        items.push(stripBulletPrefix(lines[i]));
+        i += 1;
+      }
+
+      elements.push(
+        <ul
+          key={`ul-${key++}`}
+          className="mt-2 list-disc space-y-1 pl-5 text-[14px] leading-7"
+        >
+          {items.map((item, idx) => (
+            <li key={`uli-${idx}`}>{item}</li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    // Numbered list block
+    if (isNumberedLine(current)) {
+      const items: string[] = [];
+      while (i < lines.length && isNumberedLine(lines[i].trim())) {
+        items.push(stripNumberPrefix(lines[i]));
+        i += 1;
+      }
+
+      elements.push(
+        <ol
+          key={`ol-${key++}`}
+          className="mt-2 list-decimal space-y-1 pl-5 text-[14px] leading-7"
+        >
+          {items.map((item, idx) => (
+            <li key={`oli-${idx}`}>{item}</li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    // Paragraph block
+    const paragraphLines: string[] = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() &&
+      !isBulletLine(lines[i].trim()) &&
+      !isNumberedLine(lines[i].trim())
+    ) {
+      paragraphLines.push(lines[i].trim());
+      i += 1;
+    }
+
+    elements.push(
+      <p
+        key={`p-${key++}`}
+        className="text-[14px] leading-7 text-inherit"
+      >
+        {paragraphLines.join(" ")}
+      </p>
+    );
+  }
+
+  return <div className="space-y-2">{elements}</div>;
+}
+
 export default function AIAssistantPage() {
   const [conversations, setConversations] = useState<Conversation[]>(() => {
     const saved = localStorage.getItem(CONVERSATIONS_KEY);
@@ -196,35 +298,23 @@ export default function AIAssistantPage() {
   };
 
   const callChatApi = async (userMessage: string): Promise<string> => {
-    const endpoints = [`${API_BASE}/api/chat`, `${API_BASE}/chat`];
-    let lastErr: any = null;
+    const res = await fetch(`${API_BASE}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: userMessage }),
+    });
 
-    for (const url of endpoints) {
-      try {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: userMessage }),
-        });
-
-        if (!res.ok) {
-          const t = await res.text().catch(() => "");
-          throw new Error(t || `Request failed (${res.status})`);
-        }
-
-        const data = await res.json();
-
-        return (
-          data.answer?.trim() ||
-          "Sorry, I couldn’t generate a response. Please try again."
-        );
-      } catch (e) {
-        lastErr = e;
-      }
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      throw new Error(t || `Request failed (${res.status})`);
     }
 
-    console.error("IskoBot API error:", lastErr);
-    throw lastErr;
+    const data = await res.json();
+
+    return (
+      data.answer?.trim() ||
+      "Sorry, I couldn’t generate a response. Please try again."
+    );
   };
 
   const handleSend = async () => {
@@ -282,7 +372,7 @@ export default function AIAssistantPage() {
             ? {
                 ...message,
                 content:
-                  "⚠️ Cannot connect to IskoBot backend. Make sure FastAPI is running on http://localhost:8000.",
+                  "⚠️ Cannot connect to IskoBot backend. Please make sure the backend server is running.",
               }
             : message
         ),
@@ -294,7 +384,6 @@ export default function AIAssistantPage() {
 
   const handleNewChat = () => {
     const newConversation = createNewConversation();
-
     setConversations((prev) => [newConversation, ...prev]);
     setActiveConversationId(newConversation.id);
     setInputValue("");
@@ -347,7 +436,6 @@ export default function AIAssistantPage() {
     <Layout>
       <div className="min-h-[calc(100vh-64px)] bg-[#eef8f1]">
         <div className="px-1 pb-5 pt-4 md:px-1 md:pt-5">
-          {/* Header */}
           <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h1 className="text-[26px] font-bold text-gray-900">
@@ -359,7 +447,6 @@ export default function AIAssistantPage() {
               </p>
             </div>
 
-            {/* Buttons */}
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={handleNewChat}
@@ -392,10 +479,8 @@ export default function AIAssistantPage() {
             </div>
           </div>
 
-          {/* Chat Card */}
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="flex h-[70vh] min-h-[550px] flex-col">
-              {/* Messages */}
               <div className="flex-1 overflow-y-auto px-4 py-6 md:px-5">
                 <div className="space-y-5">
                   {messages.map((message) => {
@@ -421,15 +506,13 @@ export default function AIAssistantPage() {
 
                         <div
                           className={cn(
-                            "max-w-[420px] rounded-xl px-4 py-3",
+                            "max-w-[520px] rounded-xl px-4 py-3",
                             isUser
                               ? "bg-emerald-100 text-gray-900"
                               : "bg-gray-100 text-gray-800"
                           )}
                         >
-                          <p className="text-[14px] leading-relaxed">
-                            {message.content}
-                          </p>
+                          <FormattedMessageContent content={message.content} />
 
                           <div className="mt-2 text-[11px] text-gray-500">
                             {message.timestamp}
@@ -443,7 +526,6 @@ export default function AIAssistantPage() {
                 </div>
               </div>
 
-              {/* Input */}
               <div className="border-t border-gray-200 bg-gray-50 px-4 py-4">
                 <div className="flex items-center gap-3">
                   <input
