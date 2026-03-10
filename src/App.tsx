@@ -11,6 +11,7 @@ import HomePage from "./pages/HomePage";
 import ApplicationFormPage from "./pages/ApplicationFormPage";
 import AIAssistantPage from "./pages/AIAssistantPage";
 import useAutoLogout from "./hooks/useAutoLogout";
+import ProfilePage from "./pages/ProfilePage";
 
 function isLoggedIn() {
   const token = localStorage.getItem("scholarcheck_accessToken");
@@ -116,6 +117,7 @@ function AppRoutes() {
       />
 
       <Route path="*" element={<Navigate to={isLoggedIn() ? "/home" : "/login"} replace />} />
+      <Route path="/profile" element={<ProfilePage />} />
     </Routes>
   );
 }

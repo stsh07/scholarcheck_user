@@ -1,7 +1,6 @@
-// src/components/Layout.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, FileText, MessageCircle, LogOut } from "lucide-react";
+import { Home, FileText, MessageCircle } from "lucide-react";
 import Logo from "../img/PRIMARY.png";
 import BellIcon from "../img/Notification.png";
 import UserIcon from "../img/Profile.png";
@@ -37,6 +36,28 @@ function isLoggedIn() {
   return !!token && !!user;
 }
 
+function getStoredUser(): StoredUser {
+  const raw = localStorage.getItem("scholarcheck_user");
+
+  if (!raw) {
+    return { id: 0, firstName: "Student", lastName: "", email: "" };
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    return {
+      id: Number(parsed?.id ?? 0),
+      firstName: String(parsed?.firstName ?? "Student"),
+      lastName: String(parsed?.lastName ?? ""),
+      email: String(parsed?.email ?? ""),
+      role: String(parsed?.role ?? ""),
+    };
+  } catch {
+    return { id: 0, firstName: "Student", lastName: "", email: "" };
+  }
+}
+
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -45,23 +66,29 @@ export function Layout({ children }: LayoutProps) {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
 
-  const user: StoredUser = useMemo(() => {
-    const raw = localStorage.getItem("scholarcheck_user");
-    if (!raw) {
-      return { id: 0, firstName: "Student", lastName: "", email: "" };
-    }
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return { id: 0, firstName: "Student", lastName: "", email: "" };
-    }
-  }, []);
+  const [user, setUser] = useState<StoredUser>(() => getStoredUser());
 
   const notifications = [
     "Profile update required\nPlease update your GPA information",
     "Scholarship payout scheduled next week",
     "New scholarship opportunity available",
   ];
+
+  useEffect(() => {
+    setUser(getStoredUser());
+
+    const syncUser = () => {
+      setUser(getStoredUser());
+    };
+
+    window.addEventListener("storage", syncUser);
+    window.addEventListener("focus", syncUser);
+
+    return () => {
+      window.removeEventListener("storage", syncUser);
+      window.removeEventListener("focus", syncUser);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn()) return;
@@ -88,9 +115,24 @@ export function Layout({ children }: LayoutProps) {
     localStorage.removeItem("scholarcheck_accessToken");
     localStorage.removeItem("scholarcheck_refreshToken");
     localStorage.removeItem("scholarcheck_user");
+    setProfileOpen(false);
     setLogoutOpen(false);
     navigate("/login", { replace: true });
   };
+
+  const handleViewProfile = () => {
+    setProfileOpen(false);
+    navigate("/profile");
+  };
+
+  const handleChangePassword = () => {
+    setProfileOpen(false);
+    navigate("/change-password");
+  };
+
+  const fullName = useMemo(() => {
+    return `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Student";
+  }, [user.firstName, user.lastName]);
 
   const SIDEBAR_W = 270;
   const HEADER_H = 64;
@@ -141,24 +183,13 @@ export function Layout({ children }: LayoutProps) {
               );
             })}
           </nav>
-
-          <div className="mt-auto">
-            <button
-              onClick={() => setLogoutOpen(true)}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-[14px] text-gray-700 transition hover:bg-gray-100"
-            >
-              <LogOut className="h-5 w-5 text-gray-600" />
-              <span className="font-medium">Logout</span>
-            </button>
-          </div>
         </div>
       </aside>
 
       {/* ===== MAIN AREA ===== */}
       <div style={{ marginLeft: SIDEBAR_W }}>
-        {/* HEADER now same color as sidebar */}
         <header
-          className="fixed right-0 top-0 z-50 flex items-center justify-end px-6 bg-white border-b border-gray-200"
+          className="fixed right-0 top-0 z-50 flex items-center justify-end border-b border-gray-200 bg-white px-6"
           style={{
             left: SIDEBAR_W,
             height: HEADER_H,
@@ -167,8 +198,13 @@ export function Layout({ children }: LayoutProps) {
           <div className="relative flex items-center gap-3">
             <div className="relative">
               <button
-                onClick={() => setNotificationOpen((v) => !v)}
-                className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-gray-100"
+                onClick={() => {
+                  setNotificationOpen((v) => !v);
+                  setProfileOpen(false);
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-gray-100"
+                type="button"
+                aria-label="Open notifications"
               >
                 <img src={BellIcon} alt="Notifications" className="h-5 w-5" />
               </button>
@@ -182,8 +218,14 @@ export function Layout({ children }: LayoutProps) {
 
             <div className="relative">
               <button
-                onClick={() => setProfileOpen((v) => !v)}
-                className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-gray-100"
+                onClick={() => {
+                  setProfileOpen((v) => !v);
+                  setNotificationOpen(false);
+                }}
+                className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-gray-100"
+                type="button"
+                aria-label="Open profile menu"
+                title={fullName}
               >
                 <img src={UserIcon} alt="Profile" className="h-5 w-5" />
               </button>
@@ -194,13 +236,19 @@ export function Layout({ children }: LayoutProps) {
                 firstName={user.firstName}
                 lastName={user.lastName || ""}
                 email={user.email || ""}
+                onViewProfile={handleViewProfile}
+                onChangePassword={handleChangePassword}
+                onLogout={() => {
+                  setProfileOpen(false);
+                  setLogoutOpen(true);
+                }}
               />
             </div>
           </div>
         </header>
 
         <main
-          className="min-h-screen px-8 bg-[#EAF7F1]"
+          className="min-h-screen bg-[#EAF7F1] px-8"
           style={{ paddingTop: HEADER_H + 18 }}
         >
           {children}
