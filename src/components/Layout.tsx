@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, FileText, MessageCircle } from "lucide-react";
 import Logo from "../img/PRIMARY.png";
@@ -7,6 +7,11 @@ import UserIcon from "../img/Profile.png";
 import { ProfileModal } from "../modals/ProfileModal";
 import { NotificationModal } from "../modals/NotificationModal";
 import { LogoutModal } from "../modals/LogoutModal";
+import {
+  fetchNotifications,
+  markAllNotificationsAsRead,
+  type NotificationDto,
+} from "../api/notifications";
 
 function cn(...classes: (string | undefined | false)[]) {
   return classes.filter(Boolean).join(" ");
@@ -68,11 +73,49 @@ export function Layout({ children }: LayoutProps) {
 
   const [user, setUser] = useState<StoredUser>(() => getStoredUser());
 
-  const notifications = [
-    "Profile update required\nPlease update your GPA information",
-    "Scholarship payout scheduled next week",
-    "New scholarship opportunity available",
-  ];
+  const [notifications, setNotifications] = useState<NotificationDto[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+
+  const loadNotifications = useCallback(async () => {
+    const token = localStorage.getItem("scholarcheck_accessToken") || undefined;
+    const currentUser = getStoredUser();
+
+    if (!token || !currentUser.id) {
+      setNotifications([]);
+      return;
+    }
+
+    try {
+      setNotificationsLoading(true);
+      const data = await fetchNotifications(currentUser.id, token);
+      setNotifications(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to load notifications:", error);
+      setNotifications([]);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, []);
+
+  const handleMarkAllAsRead = useCallback(async () => {
+    const token = localStorage.getItem("scholarcheck_accessToken") || undefined;
+    const currentUser = getStoredUser();
+
+    if (!currentUser.id) return;
+
+    try {
+      await markAllNotificationsAsRead(currentUser.id, token);
+      setNotifications((prev) =>
+        prev.map((item) => ({ ...item, is_read: true }))
+      );
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+    }
+  }, []);
+
+  const handleClearNotifications = useCallback(() => {
+    setNotifications([]);
+  }, []);
 
   useEffect(() => {
     setUser(getStoredUser());
@@ -89,6 +132,21 @@ export function Layout({ children }: LayoutProps) {
       window.removeEventListener("focus", syncUser);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+    loadNotifications();
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+
+    const interval = window.setInterval(() => {
+      loadNotifications();
+    }, 20000);
+
+    return () => window.clearInterval(interval);
+  }, [loadNotifications]);
 
   useEffect(() => {
     if (!isLoggedIn()) return;
@@ -116,7 +174,9 @@ export function Layout({ children }: LayoutProps) {
     localStorage.removeItem("scholarcheck_refreshToken");
     localStorage.removeItem("scholarcheck_user");
     setProfileOpen(false);
+    setNotificationOpen(false);
     setLogoutOpen(false);
+    setNotifications([]);
     navigate("/login", { replace: true });
   };
 
@@ -134,12 +194,15 @@ export function Layout({ children }: LayoutProps) {
     return `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Student";
   }, [user.firstName, user.lastName]);
 
+  const unreadCount = useMemo(() => {
+    return notifications.filter((item) => !item.is_read).length;
+  }, [notifications]);
+
   const SIDEBAR_W = 270;
   const HEADER_H = 64;
 
   return (
     <div className="min-h-screen">
-      {/* ===== SIDEBAR ===== */}
       <aside
         className="fixed top-0 left-0 h-full border-r border-gray-200 bg-white"
         style={{ width: SIDEBAR_W }}
@@ -186,7 +249,6 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </aside>
 
-      {/* ===== MAIN AREA ===== */}
       <div style={{ marginLeft: SIDEBAR_W }}>
         <header
           className="fixed right-0 top-0 z-50 flex items-center justify-end border-b border-gray-200 bg-white px-6"
@@ -198,21 +260,35 @@ export function Layout({ children }: LayoutProps) {
           <div className="relative flex items-center gap-3">
             <div className="relative">
               <button
-                onClick={() => {
-                  setNotificationOpen((v) => !v);
+                onClick={async () => {
+                  const nextOpen = !notificationOpen;
+                  setNotificationOpen(nextOpen);
                   setProfileOpen(false);
+
+                  if (nextOpen) {
+                    await loadNotifications();
+                  }
                 }}
-                className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-gray-100"
+                className="relative flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-gray-100"
                 type="button"
                 aria-label="Open notifications"
               >
                 <img src={BellIcon} alt="Notifications" className="h-5 w-5" />
+
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
               </button>
 
               <NotificationModal
                 isOpen={notificationOpen}
                 onClose={() => setNotificationOpen(false)}
                 notifications={notifications}
+                loading={notificationsLoading}
+                onMarkAllAsRead={handleMarkAllAsRead}
+                onClear={handleClearNotifications}
               />
             </div>
 

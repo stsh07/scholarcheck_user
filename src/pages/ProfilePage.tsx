@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { getUserProfile } from "../api/users";
 import {
   User,
   Mail,
@@ -9,6 +10,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Layout } from "../components/Layout";
+import { EditProfileModal, type EditForm } from "../modals/EditProfileModal";
 
 type ProfileResponse = {
   id?: number;
@@ -36,35 +38,29 @@ type ProfileResponse = {
 
 function getStoredUser() {
   const raw = localStorage.getItem("scholarcheck_user");
-  if (!raw) {
-    return {
-      firstName: "",
-      lastName: "",
-      email: "",
-    };
-  }
+  if (!raw) return { firstName: "", lastName: "", email: "" };
 
   try {
     return JSON.parse(raw);
   } catch {
-    return {
-      firstName: "",
-      lastName: "",
-      email: "",
-    };
+    return { firstName: "", lastName: "", email: "" };
   }
 }
 
-function getInitials(firstName?: string, lastName?: string) {
-  const first = String(firstName || "").trim().charAt(0);
-  const last = String(lastName || "").trim().charAt(0);
-  const value = `${first}${last}`.trim().toUpperCase();
-  return value || "JD";
+function getInitialsFromFullName(fullName?: string) {
+  const parts = String(fullName || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) return "JD";
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+
+  return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
 }
 
 function formatMemberSince(dateValue?: string | null) {
   if (!dateValue) return "—";
-
   const date = new Date(dateValue);
   if (Number.isNaN(date.getTime())) return "—";
 
@@ -72,6 +68,64 @@ function formatMemberSince(dateValue?: string | null) {
     month: "long",
     year: "numeric",
   });
+}
+
+function normalizeDob(value?: string): string {
+  if (!value) return "";
+
+  const raw = String(value).trim().slice(0, 10);
+
+  if (!raw || raw === "0000-00-00") return "";
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+
+  return "";
+}
+
+function formatDobDisplay(iso?: string) {
+  const normalized = normalizeDob(iso);
+  if (!normalized) return "—";
+
+  const [year, month, day] = normalized.split("-");
+  if (!year || !month || !day) return "—";
+
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  const monthIndex = Number(month) - 1;
+  if (monthIndex < 0 || monthIndex > 11) return "—";
+
+  return `${monthNames[monthIndex]} ${day}, ${year}`;
+}
+
+function resolveProfileImageUrl(imagePath?: string) {
+  if (!imagePath) return "";
+
+  const trimmed = String(imagePath).trim();
+  if (!trimmed) return "";
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
+  const normalizedPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+
+  return `${apiBase}${normalizedPath}`;
 }
 
 type InfoItemProps = {
@@ -107,11 +161,14 @@ export default function ProfilePage() {
     fullName: `${storedUser.firstName || ""} ${storedUser.lastName || ""}`.trim(),
     phone: "",
     address: "",
+    dob: "",
+    gender: "",
     memberSince: "",
     profileImage: "",
   });
 
   const [loading, setLoading] = useState(true);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -119,27 +176,23 @@ export default function ProfilePage() {
     async function fetchProfile() {
       try {
         setLoading(true);
-
-        const token = localStorage.getItem("scholarcheck_accessToken");
-        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
-        const response = await fetch(`${apiUrl}/api/applications/profile/me`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch profile");
-        }
-
-        const data: ProfileResponse = await response.json();
+        const data = await getUserProfile();
 
         if (!active) return;
 
-        setProfile(data);
+        const normalizedDob = normalizeDob(data.dob);
+
+        const computedFullName =
+          data.fullName ||
+          `${data.firstName || ""} ${data.middleName || ""} ${data.lastName || ""}`
+            .replace(/\s+/g, " ")
+            .trim();
+
+        setProfile({
+          ...data,
+          fullName: computedFullName,
+          dob: normalizedDob,
+        });
 
         const existingUser = getStoredUser();
         localStorage.setItem(
@@ -154,9 +207,7 @@ export default function ProfilePage() {
       } catch (error) {
         console.error("Profile fetch error:", error);
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
 
@@ -167,18 +218,52 @@ export default function ProfilePage() {
     };
   }, []);
 
-  const firstName = profile.firstName || storedUser.firstName || "";
-  const lastName = profile.lastName || storedUser.lastName || "";
   const fullName =
     profile.fullName ||
-    `${firstName} ${lastName}`.replace(/\s+/g, " ").trim() ||
+    `${profile.firstName || storedUser.firstName || ""} ${profile.middleName || ""} ${profile.lastName || storedUser.lastName || ""}`
+      .replace(/\s+/g, " ")
+      .trim() ||
     "Student";
+
   const email = profile.email || storedUser.email || "—";
+  const dob = formatDobDisplay(profile.dob);
+  const gender = profile.gender || "—";
   const phone = profile.phone || "—";
   const address = profile.address || "—";
   const memberSince = formatMemberSince(profile.memberSince);
-  const initials = getInitials(firstName, lastName);
-  const profileImage = profile.profileImage || "";
+  const initials = getInitialsFromFullName(fullName);
+  const profileImage = resolveProfileImageUrl(profile.profileImage);
+
+  const editInitial: EditForm = {
+    fullName: fullName === "Student" ? "" : fullName,
+    dob: normalizeDob(profile.dob),
+    gender: profile.gender || "",
+    email: profile.email || storedUser.email || "",
+    phone: profile.phone || "",
+    address: profile.address || "",
+  };
+
+  function handleSaved(updated: EditForm, updatedProfileImage?: string) {
+    setProfile((prev) => ({
+      ...prev,
+      fullName: updated.fullName,
+      dob: normalizeDob(updated.dob),
+      gender: updated.gender,
+      email: updated.email,
+      phone: updated.phone,
+      address: updated.address,
+      profileImage: updatedProfileImage || prev.profileImage,
+    }));
+
+    const existingUser = getStoredUser();
+    localStorage.setItem(
+      "scholarcheck_user",
+      JSON.stringify({
+        ...existingUser,
+        email: updated.email,
+      })
+    );
+  }
 
   return (
     <Layout>
@@ -204,27 +289,27 @@ export default function ProfilePage() {
             <>
               <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
                 <div className="flex items-center gap-5">
-                  <button
-                    type="button"
-                    aria-label="Change profile picture"
-                    className="relative flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full md:h-[96px] md:w-[96px]"
-                  >
+                  <div className="relative flex h-[88px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-full md:h-[96px] md:w-[96px]">
                     {profileImage ? (
                       <img
                         src={profileImage}
                         alt={fullName}
                         className="h-full w-full rounded-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center rounded-full bg-emerald-100 text-[22px] font-semibold text-emerald-900 md:text-[24px]">
                         {initials}
                       </div>
                     )}
-
-                    <div className="absolute bottom-0 right-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-emerald-700 text-white shadow-sm">
-                      <Pencil className="h-[10px] w-[10px]" />
-                    </div>
-                  </button>
+                    {!profileImage && (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-full bg-emerald-100 text-[22px] font-semibold text-emerald-900 md:text-[24px]">
+                        {initials}
+                      </div>
+                    )}
+                  </div>
 
                   <div>
                     <h2 className="text-[22px] font-semibold leading-tight text-gray-900">
@@ -236,6 +321,7 @@ export default function ProfilePage() {
 
                 <button
                   type="button"
+                  onClick={() => setEditOpen(true)}
                   className="inline-flex h-[40px] items-center justify-center gap-2 self-start rounded-lg bg-emerald-800 px-4 text-[14px] font-medium text-white transition hover:bg-emerald-900 active:bg-emerald-900"
                 >
                   <Pencil className="h-4 w-4" />
@@ -256,19 +342,26 @@ export default function ProfilePage() {
                     label="Full Name"
                     value={fullName}
                   />
-
+                  <InfoItem
+                    icon={<CalendarDays className="h-4 w-4" />}
+                    label="Date of Birth"
+                    value={dob}
+                  />
+                  <InfoItem
+                    icon={<User className="h-4 w-4" />}
+                    label="Gender"
+                    value={gender}
+                  />
                   <InfoItem
                     icon={<Mail className="h-4 w-4" />}
                     label="Email Address"
                     value={email}
                   />
-
                   <InfoItem
                     icon={<Phone className="h-4 w-4" />}
                     label="Phone Number"
                     value={phone}
                   />
-
                   <InfoItem
                     icon={<MapPin className="h-4 w-4" />}
                     label="Address"
@@ -294,6 +387,14 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      <EditProfileModal
+        open={editOpen}
+        initial={editInitial}
+        initialProfileImage={profile.profileImage || ""}
+        onClose={() => setEditOpen(false)}
+        onSaved={handleSaved}
+      />
     </Layout>
   );
 }
