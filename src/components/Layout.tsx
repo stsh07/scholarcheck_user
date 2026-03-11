@@ -5,6 +5,7 @@ import Logo from "../img/PRIMARY.png";
 import BellIcon from "../img/Notification.png";
 import UserIcon from "../img/Profile.png";
 import { ProfileModal } from "../modals/ProfileModal";
+import ChangePasswordModal from "../modals/ChangePasswordModal";
 import { NotificationModal } from "../modals/NotificationModal";
 import { LogoutModal } from "../modals/LogoutModal";
 import {
@@ -12,6 +13,11 @@ import {
   markAllNotificationsAsRead,
   type NotificationDto,
 } from "../api/notifications";
+import {
+  requestPasswordChangeOtp,
+  resendPasswordChangeOtp,
+  verifyPasswordChangeOtp,
+} from "../api/changePassword";
 
 function cn(...classes: (string | undefined | false)[]) {
   return classes.filter(Boolean).join(" ");
@@ -88,6 +94,11 @@ export function Layout({ children }: LayoutProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [isResendingOtp, setIsResendingOtp] = useState(false);
 
   const [user, setUser] = useState<StoredUser>(() => getStoredUser());
 
@@ -180,6 +191,7 @@ export function Layout({ children }: LayoutProps) {
       setProfileOpen(false);
       setNotificationOpen(false);
       setLogoutOpen(false);
+      setChangePasswordOpen(false);
       window.setTimeout(() => pushGuard(), 0);
     };
 
@@ -194,6 +206,7 @@ export function Layout({ children }: LayoutProps) {
     setProfileOpen(false);
     setNotificationOpen(false);
     setLogoutOpen(false);
+    setChangePasswordOpen(false);
     setNotifications([]);
     navigate("/login", { replace: true });
   };
@@ -205,8 +218,124 @@ export function Layout({ children }: LayoutProps) {
 
   const handleChangePassword = () => {
     setProfileOpen(false);
-    navigate("/change-password");
+    setChangePasswordOpen(true);
   };
+
+  const handleSubmitPasswordChange = useCallback(
+    async (payload: {
+      oldPassword: string;
+      newPassword: string;
+      confirmPassword: string;
+    }) => {
+      const token = localStorage.getItem("scholarcheck_accessToken") || undefined;
+      const currentUser = getStoredUser();
+
+      if (!token) {
+        throw new Error("You are not logged in.");
+      }
+
+      if (!currentUser.id) {
+        throw new Error("User not found.");
+      }
+
+      try {
+        setIsSubmittingPassword(true);
+
+        await requestPasswordChangeOtp(
+          {
+            userId: currentUser.id,
+            oldPassword: payload.oldPassword,
+            newPassword: payload.newPassword,
+            confirmPassword: payload.confirmPassword,
+          },
+          token
+        );
+      } finally {
+        setIsSubmittingPassword(false);
+      }
+    },
+    []
+  );
+
+  const handleVerifyOtp = useCallback(async (otp: string) => {
+    const token = localStorage.getItem("scholarcheck_accessToken") || undefined;
+    const currentUser = getStoredUser();
+
+    if (!token) {
+      throw new Error("You are not logged in.");
+    }
+
+    if (!currentUser.id) {
+      throw new Error("User not found.");
+    }
+
+    try {
+      setIsVerifyingOtp(true);
+
+      const result = await verifyPasswordChangeOtp(
+        {
+          userId: currentUser.id,
+          otp,
+        },
+        token
+      );
+
+      const nextAccessToken =
+        result?.accessToken ||
+        result?.tokens?.accessToken ||
+        result?.data?.accessToken;
+
+      const nextRefreshToken =
+        result?.refreshToken ||
+        result?.tokens?.refreshToken ||
+        result?.data?.refreshToken;
+
+      const nextUser =
+        result?.user ||
+        result?.data?.user;
+
+      if (nextAccessToken) {
+        localStorage.setItem("scholarcheck_accessToken", String(nextAccessToken));
+      }
+
+      if (nextRefreshToken) {
+        localStorage.setItem("scholarcheck_refreshToken", String(nextRefreshToken));
+      }
+
+      if (nextUser) {
+        localStorage.setItem("scholarcheck_user", JSON.stringify(nextUser));
+        setUser(getStoredUser());
+      }
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  }, []);
+
+  const handleResendOtp = useCallback(async () => {
+    const token = localStorage.getItem("scholarcheck_accessToken") || undefined;
+    const currentUser = getStoredUser();
+
+    if (!token) {
+      throw new Error("You are not logged in.");
+    }
+
+    if (!currentUser.id) {
+      throw new Error("User not found.");
+    }
+
+    try {
+      setIsResendingOtp(true);
+
+      await resendPasswordChangeOtp(
+        {
+          userId: currentUser.id,
+        },
+        token
+      );
+    } finally {
+      setIsResendingOtp(false);
+    }
+  }, []);
 
   const fullName = useMemo(() => {
     return (
@@ -226,7 +355,7 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen">
       <aside
-        className="fixed top-0 left-0 h-full border-r border-gray-200 bg-white"
+        className="fixed left-0 top-0 h-full border-r border-gray-200 bg-white"
         style={{ width: SIDEBAR_W }}
       >
         <div className="flex h-full flex-col px-5 py-5">
@@ -359,6 +488,21 @@ export function Layout({ children }: LayoutProps) {
         isOpen={logoutOpen}
         onClose={() => setLogoutOpen(false)}
         onConfirm={handleConfirmLogout}
+      />
+
+      <ChangePasswordModal
+        isOpen={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+        email={user.email || ""}
+        onSubmitPasswordChange={handleSubmitPasswordChange}
+        onVerifyOtp={handleVerifyOtp}
+        onResendOtp={handleResendOtp}
+        onSuccessDone={() => {
+          setChangePasswordOpen(false);
+        }}
+        isSubmittingPassword={isSubmittingPassword}
+        isVerifyingOtp={isVerifyingOtp}
+        isResendingOtp={isResendingOtp}
       />
     </div>
   );

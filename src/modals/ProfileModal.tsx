@@ -178,7 +178,7 @@ export function ProfileModal({
         <button
           type="button"
           onClick={onLogout}
-          className="flex w-full items-center gap-2 rounded-[12px] px-2 py-2 text-[14px] font-medium text-red-500"
+          className="flex w-full items-center gap-2 rounded-[12px] px-2 py-2 text-[14px] font-medium text-red-500 transition hover:bg-red-50"
         >
           <LogOut className="h-4 w-4" />
           <span>Logout</span>
