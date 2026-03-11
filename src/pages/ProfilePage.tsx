@@ -38,12 +38,26 @@ type ProfileResponse = {
 
 function getStoredUser() {
   const raw = localStorage.getItem("scholarcheck_user");
-  if (!raw) return { firstName: "", lastName: "", email: "" };
+  if (!raw) {
+    return {
+      firstName: "",
+      lastName: "",
+      email: "",
+      fullName: "",
+      profileImage: "",
+    };
+  }
 
   try {
     return JSON.parse(raw);
   } catch {
-    return { firstName: "", lastName: "", email: "" };
+    return {
+      firstName: "",
+      lastName: "",
+      email: "",
+      fullName: "",
+      profileImage: "",
+    };
   }
 }
 
@@ -158,13 +172,15 @@ export default function ProfilePage() {
     firstName: storedUser.firstName || "",
     lastName: storedUser.lastName || "",
     email: storedUser.email || "",
-    fullName: `${storedUser.firstName || ""} ${storedUser.lastName || ""}`.trim(),
+    fullName:
+      storedUser.fullName ||
+      `${storedUser.firstName || ""} ${storedUser.lastName || ""}`.trim(),
     phone: "",
     address: "",
     dob: "",
     gender: "",
     memberSince: "",
-    profileImage: "",
+    profileImage: storedUser.profileImage || "",
   });
 
   const [loading, setLoading] = useState(true);
@@ -188,20 +204,25 @@ export default function ProfilePage() {
             .replace(/\s+/g, " ")
             .trim();
 
-        setProfile({
+        const nextProfile = {
           ...data,
           fullName: computedFullName,
           dob: normalizedDob,
-        });
+        };
+
+        setProfile(nextProfile);
 
         const existingUser = getStoredUser();
         localStorage.setItem(
           "scholarcheck_user",
           JSON.stringify({
             ...existingUser,
+            id: data.id ?? existingUser.id ?? 0,
             firstName: data.firstName || existingUser.firstName || "",
             lastName: data.lastName || existingUser.lastName || "",
             email: data.email || existingUser.email || "",
+            fullName: computedFullName,
+            profileImage: data.profileImage || "",
           })
         );
       } catch (error) {
@@ -244,25 +265,34 @@ export default function ProfilePage() {
   };
 
   function handleSaved(updated: EditForm, updatedProfileImage?: string) {
-    setProfile((prev) => ({
-      ...prev,
-      fullName: updated.fullName,
-      dob: normalizeDob(updated.dob),
-      gender: updated.gender,
-      email: updated.email,
-      phone: updated.phone,
-      address: updated.address,
-      profileImage: updatedProfileImage || prev.profileImage,
-    }));
-
-    const existingUser = getStoredUser();
-    localStorage.setItem(
-      "scholarcheck_user",
-      JSON.stringify({
-        ...existingUser,
+    setProfile((prev) => {
+      const updatedProfile = {
+        ...prev,
+        fullName: updated.fullName,
+        dob: normalizeDob(updated.dob),
+        gender: updated.gender,
         email: updated.email,
-      })
-    );
+        phone: updated.phone,
+        address: updated.address,
+        profileImage: updatedProfileImage || prev.profileImage,
+      };
+
+      const existingUser = getStoredUser();
+      localStorage.setItem(
+        "scholarcheck_user",
+        JSON.stringify({
+          ...existingUser,
+          id: prev.id ?? existingUser.id ?? 0,
+          firstName: prev.firstName || existingUser.firstName || "",
+          lastName: prev.lastName || existingUser.lastName || "",
+          email: updated.email,
+          fullName: updated.fullName,
+          profileImage: updatedProfile.profileImage || "",
+        })
+      );
+
+      return updatedProfile;
+    });
   }
 
   return (

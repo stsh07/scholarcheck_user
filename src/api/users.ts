@@ -21,9 +21,13 @@ export type UserProfile = {
 export type UpdateUserProfilePayload = {
   fullName?: string;
   email?: string;
+  middleName?: string;
   dob?: string;
   gender?: string;
   phone?: string;
+  province?: string;
+  municipality?: string;
+  barangay?: string;
   address?: string;
 };
 
@@ -53,9 +57,13 @@ export async function updateUserProfile(
 
   if (data.fullName !== undefined) formData.append("fullName", data.fullName);
   if (data.email !== undefined) formData.append("email", data.email);
+  if (data.middleName !== undefined) formData.append("middleName", data.middleName);
   if (data.dob !== undefined) formData.append("dob", data.dob);
   if (data.gender !== undefined) formData.append("gender", data.gender);
   if (data.phone !== undefined) formData.append("phone", data.phone);
+  if (data.province !== undefined) formData.append("province", data.province);
+  if (data.municipality !== undefined) formData.append("municipality", data.municipality);
+  if (data.barangay !== undefined) formData.append("barangay", data.barangay);
   if (data.address !== undefined) formData.append("address", data.address);
 
   if (profileImageFile) {

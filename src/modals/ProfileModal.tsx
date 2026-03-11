@@ -1,15 +1,45 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LogOut } from "lucide-react";
 
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  firstName: string;
-  lastName: string;
-  email: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  email?: string;
+  profileImage?: string;
   onViewProfile: () => void;
   onChangePassword: () => void;
   onLogout: () => void;
+}
+
+function getInitialsFromFullName(fullName?: string) {
+  const parts = String(fullName || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) return "ST";
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+
+  return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
+}
+
+function resolveProfileImageUrl(imagePath?: string) {
+  if (!imagePath) return "";
+
+  const trimmed = String(imagePath).trim();
+  if (!trimmed) return "";
+
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("blob:")) {
+    return trimmed;
+  }
+
+  const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/$/, "");
+  const normalizedPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+
+  return `${apiBase}${normalizedPath}`;
 }
 
 export function ProfileModal({
@@ -17,23 +47,35 @@ export function ProfileModal({
   onClose,
   firstName,
   lastName,
+  fullName,
   email,
+  profileImage,
   onViewProfile,
   onChangePassword,
   onLogout,
 }: ProfileModalProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const [imageFailed, setImageFailed] = useState(false);
 
-  const fullName = useMemo(() => {
-    return `${firstName ?? ""} ${lastName ?? ""}`.trim() || "Student";
-  }, [firstName, lastName]);
+  const displayName = useMemo(() => {
+    return (
+      String(fullName || "").trim() ||
+      `${firstName ?? ""} ${lastName ?? ""}`.trim() ||
+      "Student"
+    );
+  }, [fullName, firstName, lastName]);
 
   const initials = useMemo(() => {
-    const first = String(firstName || "").trim().charAt(0);
-    const last = String(lastName || "").trim().charAt(0);
-    const value = `${first}${last}`.trim().toUpperCase();
-    return value || "ST";
-  }, [firstName, lastName]);
+    return getInitialsFromFullName(displayName);
+  }, [displayName]);
+
+  const resolvedProfileImage = useMemo(() => {
+    return resolveProfileImageUrl(profileImage);
+  }, [profileImage]);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [resolvedProfileImage, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -61,6 +103,8 @@ export function ProfileModal({
 
   if (!isOpen) return null;
 
+  const showImage = !!resolvedProfileImage && !imageFailed;
+
   return (
     <div
       ref={ref}
@@ -72,19 +116,27 @@ export function ProfileModal({
       "
     >
       <div className="px-5 pt-5 pb-4">
-        <div className="mx-auto flex h-[76px] w-[76px] items-center justify-center rounded-full bg-emerald-100 text-[20px] font-semibold text-emerald-900">
-          {initials}
+        <div className="mx-auto flex h-[76px] w-[76px] items-center justify-center overflow-hidden rounded-full bg-emerald-100 text-[20px] font-semibold text-emerald-900">
+          {showImage ? (
+            <img
+              src={resolvedProfileImage}
+              alt={displayName}
+              className="h-full w-full rounded-full object-cover"
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <span>{initials}</span>
+          )}
         </div>
 
         <p className="mt-3 text-center text-[16px] font-bold leading-tight text-gray-700">
-          {fullName}
+          {displayName}
         </p>
 
-        <p className="mt-1 text-center text-[13px] text-gray-500 break-words">
+        <p className="mt-1 break-words text-center text-[13px] text-gray-500">
           {email || "No email available"}
         </p>
 
-        {/* VIEW PROFILE */}
         <button
           type="button"
           onClick={onViewProfile}
@@ -103,7 +155,6 @@ export function ProfileModal({
           View Profile
         </button>
 
-        {/* CHANGE PASSWORD */}
         <button
           type="button"
           onClick={onChangePassword}
@@ -123,7 +174,6 @@ export function ProfileModal({
         </button>
       </div>
 
-      {/* LOGOUT */}
       <div className="border-t border-gray-200 px-3 py-3">
         <button
           type="button"

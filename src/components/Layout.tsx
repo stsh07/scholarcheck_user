@@ -33,6 +33,8 @@ type StoredUser = {
   lastName?: string;
   email?: string;
   role?: string;
+  fullName?: string;
+  profileImage?: string;
 };
 
 function isLoggedIn() {
@@ -45,7 +47,14 @@ function getStoredUser(): StoredUser {
   const raw = localStorage.getItem("scholarcheck_user");
 
   if (!raw) {
-    return { id: 0, firstName: "Student", lastName: "", email: "" };
+    return {
+      id: 0,
+      firstName: "Student",
+      lastName: "",
+      email: "",
+      fullName: "Student",
+      profileImage: "",
+    };
   }
 
   try {
@@ -57,9 +66,18 @@ function getStoredUser(): StoredUser {
       lastName: String(parsed?.lastName ?? ""),
       email: String(parsed?.email ?? ""),
       role: String(parsed?.role ?? ""),
+      fullName: String(parsed?.fullName ?? ""),
+      profileImage: String(parsed?.profileImage ?? ""),
     };
   } catch {
-    return { id: 0, firstName: "Student", lastName: "", email: "" };
+    return {
+      id: 0,
+      firstName: "Student",
+      lastName: "",
+      email: "",
+      fullName: "Student",
+      profileImage: "",
+    };
   }
 }
 
@@ -191,8 +209,12 @@ export function Layout({ children }: LayoutProps) {
   };
 
   const fullName = useMemo(() => {
-    return `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Student";
-  }, [user.firstName, user.lastName]);
+    return (
+      String(user.fullName || "").trim() ||
+      `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+      "Student"
+    );
+  }, [user.fullName, user.firstName, user.lastName]);
 
   const unreadCount = useMemo(() => {
     return notifications.filter((item) => !item.is_read).length;
@@ -311,7 +333,9 @@ export function Layout({ children }: LayoutProps) {
                 onClose={() => setProfileOpen(false)}
                 firstName={user.firstName}
                 lastName={user.lastName || ""}
+                fullName={user.fullName || ""}
                 email={user.email || ""}
+                profileImage={user.profileImage || ""}
                 onViewProfile={handleViewProfile}
                 onChangePassword={handleChangePassword}
                 onLogout={() => {
