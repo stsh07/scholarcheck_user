@@ -127,6 +127,9 @@ const MONTH_NAMES = [
 
 const WEEKDAY_SHORT = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
+const ALLOWED_FILE_TYPES = ["application/pdf", "image/png", "image/jpeg"];
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+
 function getStoredUser(): StoredUser | null {
   try {
     const raw = localStorage.getItem("scholarcheck_user");
@@ -272,6 +275,12 @@ function getIncomeOptions(occupation: string) {
 function isNoneAllowedForOccupation(occupation: string) {
   const occ = occupation.trim().toLowerCase();
   return occ === "n/a" || occ === "na" || occ === "none";
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
 function ChevronDownIcon({ open }: { open: boolean }) {
@@ -634,14 +643,15 @@ function CustomDobPicker({
   value,
   disabled = false,
   min,
+  max,
   onChange,
 }: CustomDobPickerProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
-  const today = new Date();
   const minDate = parseIsoDate(min);
+  const maxDate = parseIsoDate(max);
   const selectedDate = value ? parseIsoDate(value) : null;
-  const initialViewDate = selectedDate || today;
+  const initialViewDate = selectedDate || maxDate;
 
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(initialViewDate.getMonth());
@@ -654,10 +664,10 @@ function CustomDobPicker({
       setViewMonth(selectedDate.getMonth());
       setViewYear(selectedDate.getFullYear());
     } else {
-      setViewMonth(today.getMonth());
-      setViewYear(today.getFullYear());
+      setViewMonth(maxDate.getMonth());
+      setViewYear(maxDate.getFullYear());
     }
-  }, [value]);
+  }, [value, maxDate]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -687,11 +697,11 @@ function CustomDobPicker({
   }, []);
 
   const currentMonthFirstDay = new Date(viewYear, viewMonth, 1);
-  const todayMonthFirstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const maxMonthFirstDay = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
   const minMonthFirstDay = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
 
   const canGoPrevMonth = currentMonthFirstDay > minMonthFirstDay;
-  const canGoNextMonth = currentMonthFirstDay < todayMonthFirstDay;
+  const canGoNextMonth = currentMonthFirstDay < maxMonthFirstDay;
 
   const monthStart = new Date(viewYear, viewMonth, 1);
   const monthEnd = new Date(viewYear, viewMonth + 1, 0);
@@ -702,11 +712,11 @@ function CustomDobPicker({
 
   const yearOptions = useMemo(() => {
     const years: number[] = [];
-    for (let year = today.getFullYear(); year >= minDate.getFullYear(); year--) {
+    for (let year = maxDate.getFullYear(); year >= minDate.getFullYear(); year--) {
       years.push(year);
     }
     return years;
-  }, [minDate, today]);
+  }, [minDate, maxDate]);
 
   const calendarDays = Array.from({ length: 42 }, (_, index) => {
     const dayIndex = index - startDay + 1;
@@ -741,10 +751,10 @@ function CustomDobPicker({
 
   const selectDate = (date: Date) => {
     const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const maxOnly = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
     const minOnly = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
 
-    if (dateOnly > todayOnly) return;
+    if (dateOnly > maxOnly) return;
     if (dateOnly < minOnly) return;
 
     onChange({ target: { name, value: formatDateToIso(dateOnly) } });
@@ -837,7 +847,7 @@ function CustomDobPicker({
                       const probeMonthStart = new Date(probe.getFullYear(), probe.getMonth(), 1);
                       const enabled =
                         probeMonthStart >= minMonthFirstDay &&
-                        probeMonthStart <= todayMonthFirstDay;
+                        probeMonthStart <= maxMonthFirstDay;
 
                       const active = monthIndex === viewMonth;
 
@@ -892,8 +902,8 @@ function CustomDobPicker({
                             setShowYearMenu(false);
 
                             const nextMonthStart = new Date(year, viewMonth, 1);
-                            if (nextMonthStart > todayMonthFirstDay) {
-                              setViewMonth(today.getMonth());
+                            if (nextMonthStart > maxMonthFirstDay) {
+                              setViewMonth(maxDate.getMonth());
                             }
                             if (nextMonthStart < minMonthFirstDay) {
                               setViewMonth(minDate.getMonth());
@@ -942,12 +952,12 @@ function CustomDobPicker({
 
             {calendarDays.map(({ date, inCurrentMonth }) => {
               const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-              const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+              const maxOnly = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
               const minOnly = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
 
               const iso = formatDateToIso(dateOnly);
               const isSelected = value === iso;
-              const isAllowed = dateOnly <= todayOnly && dateOnly >= minOnly;
+              const isAllowed = dateOnly <= maxOnly && dateOnly >= minOnly;
 
               return (
                 <button
@@ -1285,10 +1295,7 @@ export default function ApplicationFormPage() {
       setLoadError("");
 
       try {
-        const [app, openRes] = await Promise.all([
-          getMyApplication(),
-          getApplicationsOpen(),
-        ]);
+        const [app, openRes] = await Promise.all([getMyApplication(), getApplicationsOpen()]);
 
         if (!mounted) return;
 
@@ -1581,12 +1588,23 @@ export default function ApplicationFormPage() {
     if (!files || files.length === 0) return;
 
     const file = files[0];
-    const allowedTypes = ["application/pdf", "image/png", "image/jpeg"];
 
-    if (!allowedTypes.includes(file.type)) {
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
       setErrors((prev) => ({
         ...prev,
-        [fieldName]: "Only PDF, PNG, and JPG files are allowed.",
+        [fieldName]: "Only PDF, PNG, JPG, and JPEG files are allowed.",
+      }));
+
+      const el = inputRefs.current[fieldName];
+      if (el) el.value = "";
+      setFileValue(fieldName, null);
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      setErrors((prev) => ({
+        ...prev,
+        [fieldName]: `File is too large. Maximum allowed size is ${formatBytes(MAX_FILE_SIZE_BYTES)}.`,
       }));
 
       const el = inputRefs.current[fieldName];
@@ -1713,7 +1731,7 @@ export default function ApplicationFormPage() {
           address: buildAddress(form.province, form.municipality, form.barangay),
         });
       } catch {
-        // silently fail — application changes are already saved
+        //
       }
 
       const updated = await getMyApplication();
@@ -2204,6 +2222,10 @@ export default function ApplicationFormPage() {
             <div className={sectionTitle}>Documents</div>
 
             <div className={sectionBody}>
+              <p className="mb-4 text-[12px] text-gray-600">
+                Allowed files: PDF, PNG, JPG, JPEG. Maximum file size per document: 5MB.
+              </p>
+
               <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-3">
                 {fileItems.map((item) => {
                   const selected = form[item.key];
