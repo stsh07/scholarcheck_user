@@ -38,6 +38,7 @@ type ProfileResponse = {
 
 function getStoredUser() {
   const raw = localStorage.getItem("scholarcheck_user");
+
   if (!raw) {
     return {
       firstName: "",
@@ -74,9 +75,10 @@ function getInitialsFromFullName(fullName?: string) {
 }
 
 function formatMemberSince(dateValue?: string | null) {
-  if (!dateValue) return "—";
+  if (!dateValue) return "";
+
   const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "";
 
   return date.toLocaleDateString("en-US", {
     month: "long",
@@ -100,10 +102,10 @@ function normalizeDob(value?: string): string {
 
 function formatDobDisplay(iso?: string) {
   const normalized = normalizeDob(iso);
-  if (!normalized) return "—";
+  if (!normalized) return "";
 
   const [year, month, day] = normalized.split("-");
-  if (!year || !month || !day) return "—";
+  if (!year || !month || !day) return "";
 
   const monthNames = [
     "January",
@@ -121,7 +123,7 @@ function formatDobDisplay(iso?: string) {
   ];
 
   const monthIndex = Number(month) - 1;
-  if (monthIndex < 0 || monthIndex > 11) return "—";
+  if (monthIndex < 0 || monthIndex > 11) return "";
 
   return `${monthNames[monthIndex]} ${day}, ${year}`;
 }
@@ -157,8 +159,8 @@ function InfoItem({ icon, label, value }: InfoItemProps) {
 
       <div className="min-w-0">
         <p className="text-[14px] leading-5 text-gray-400">{label}</p>
-        <p className="break-words text-[16px] font-semibold leading-6 text-gray-900">
-          {value || "—"}
+        <p className="min-h-[24px] break-words text-[16px] font-semibold leading-6 text-gray-900">
+          {value}
         </p>
       </div>
     </div>
@@ -246,11 +248,11 @@ export default function ProfilePage() {
       .trim() ||
     "Student";
 
-  const email = profile.email || storedUser.email || "—";
+  const email = profile.email || storedUser.email || "";
   const dob = formatDobDisplay(profile.dob);
-  const gender = profile.gender || "—";
-  const phone = profile.phone || "—";
-  const address = profile.address || "—";
+  const gender = profile.gender || "";
+  const phone = profile.phone || "";
+  const address = profile.address || "";
   const memberSince = formatMemberSince(profile.memberSince);
   const initials = getInitialsFromFullName(fullName);
   const profileImage = resolveProfileImageUrl(profile.profileImage);
