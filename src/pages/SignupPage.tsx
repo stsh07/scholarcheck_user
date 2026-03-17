@@ -7,6 +7,7 @@ import EyeOffIcon from "../img/Hide.png";
 import { requestSignupOtp, signup } from "../api/auth";
 import OtpModal from "../modals/OtpModal";
 import SignedUpSuccessfullyModal from "../modals/SignUpSuccessfullyModal";
+import LoginErrorModal from "../modals/LoginErrorModal";
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -26,6 +27,11 @@ export default function SignupPage() {
   const [loadingSignup, setLoadingSignup] = useState(false);
 
   const [showSignupSuccess, setShowSignupSuccess] = useState(false);
+
+  const [errorModal, setErrorModal] = useState({ open: false, title: "", message: "" });
+  const showError = (title: string, message: string) =>
+    setErrorModal({ open: true, title, message });
+  const closeError = () => setErrorModal((prev) => ({ ...prev, open: false }));
 
   const [errors, setErrors] = useState({
     firstName: "",
@@ -117,7 +123,7 @@ export default function SignupPage() {
 
       setShowOtpModal(true);
     } catch (error: any) {
-      alert(error?.message || "Failed to send OTP. Check backend.");
+      showError("Sign Up Failed", error?.message || "Failed to send OTP. Check backend.");
     } finally {
       setLoadingOtp(false);
     }
@@ -125,7 +131,7 @@ export default function SignupPage() {
 
   const handleProceed = async () => {
     if (!/^\d{6}$/.test(otp)) {
-      alert("OTP must be exactly 6 digits.");
+      showError("Invalid OTP", "OTP must be exactly 6 digits.");
       return;
     }
 
@@ -147,7 +153,7 @@ export default function SignupPage() {
 
       console.log(res?.message || "Signup successful");
     } catch (error: any) {
-      alert(error?.message || "Signup failed. OTP might be wrong/expired.");
+      showError("Sign Up Failed", error?.message || "Signup failed. OTP might be wrong/expired.");
     } finally {
       setLoadingSignup(false);
     }
@@ -388,16 +394,23 @@ export default function SignupPage() {
               try {
                 setLoadingOtp(true);
                 const res = await requestSignupOtp(emailValueForApi);
-                alert(res.message);
+                showError("OTP Sent", res.message);
                 if (res.devOtp) setOtp(res.devOtp);
               } catch (err: any) {
-                alert(err?.message || "Failed to resend OTP.");
+                showError("Resend Failed", err?.message || "Failed to resend OTP.");
               } finally {
                 setLoadingOtp(false);
               }
             }}
           />
         )}
+
+        <LoginErrorModal
+          open={errorModal.open}
+          title={errorModal.title}
+          message={errorModal.message}
+          onClose={closeError}
+        />
 
         <SignedUpSuccessfullyModal
           open={showSignupSuccess}

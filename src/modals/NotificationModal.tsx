@@ -132,23 +132,19 @@ export function NotificationModal({
         )}
       </div>
 
-      <div className="max-h-[420px] overflow-y-auto">
+      <div className="h-[220px] overflow-y-auto">
         {loading ? (
-          <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-            <div className="mb-3 h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-green-600" />
-            <p className="text-sm font-medium text-gray-700">
-              Loading notifications...
-            </p>
+          <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+            <div className="mb-3 h-7 w-7 animate-spin rounded-full border-2 border-gray-300 border-t-green-600" />
+            <p className="text-sm font-medium text-gray-700">Loading notifications...</p>
           </div>
         ) : notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-            <div className="mb-4 rounded-full bg-gray-100 p-4">
-              <Bell size={22} className="text-gray-500" />
+          <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+            <div className="mb-3 rounded-full bg-gray-100 p-3">
+              <Bell size={20} className="text-gray-500" />
             </div>
-            <p className="text-[15px] font-semibold text-gray-800">
-              No notifications yet
-            </p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="text-[14px] font-semibold text-gray-800">No notifications yet</p>
+            <p className="mt-1 text-xs text-gray-500">
               Announcements and application updates will appear here.
             </p>
           </div>
@@ -157,68 +153,41 @@ export function NotificationModal({
             {notifications.map((note) => (
               <li
                 key={note.id}
-                className={`px-4 py-4 transition ${
-                  note.is_read ? "bg-white" : "bg-green-50/40"
-                }`}
+                className={`transition ${note.is_read ? "bg-white" : "bg-green-50/40"}`}
               >
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                <div className="flex items-center gap-3 px-4 py-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
                     {getNotificationIcon(note.type)}
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="mb-2 flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-700">
                           {getNotificationBadge(note.type)}
                         </span>
-
                         {!note.is_read && (
-                          <span className="rounded-full bg-green-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-green-700">
-                            New
-                          </span>
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
                         )}
                       </div>
-
-                      {!note.is_read && (
-                        <span
-                          className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500"
-                          aria-label="Unread notification"
-                          title="Unread"
-                        />
-                      )}
+                      <span className="shrink-0 text-[11px] text-gray-400">
+                        {formatTimeAgo(note.created_at)}
+                      </span>
                     </div>
 
                     <p
-                      className="text-sm font-semibold text-gray-900"
-                      style={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
+                      className="mt-0.5 truncate text-[13px] font-semibold text-gray-900"
                       title={note.title}
                     >
                       {note.title}
                     </p>
 
                     <p
-                      className="mt-1 text-sm leading-relaxed text-gray-600"
-                      style={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        maxWidth: "100%",
-                      }}
+                      className="truncate text-[12px] text-gray-500"
                       title={note.message}
                     >
                       {note.message}
                     </p>
-
-                    <div className="mt-2">
-                      <span className="text-xs text-gray-400">
-                        {formatTimeAgo(note.created_at)}
-                      </span>
-                    </div>
                   </div>
                 </div>
               </li>
