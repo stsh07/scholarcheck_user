@@ -10,6 +10,7 @@ import { NotificationModal } from "../modals/NotificationModal";
 import { LogoutModal } from "../modals/LogoutModal";
 import {
   fetchNotifications,
+  markNotificationAsRead,
   markAllNotificationsAsRead,
   type NotificationDto,
 } from "../api/notifications";
@@ -42,6 +43,11 @@ type StoredUser = {
   fullName?: string;
   profileImage?: string;
 };
+
+type ClickableNotification = Pick<
+  NotificationDto,
+  "id" | "type" | "title" | "message" | "is_read"
+>;
 
 function isLoggedIn() {
   const token = localStorage.getItem("scholarcheck_accessToken");
@@ -145,6 +151,52 @@ export function Layout({ children }: LayoutProps) {
   const handleClearNotifications = useCallback(() => {
     setNotifications([]);
   }, []);
+
+  const getNotificationTargetPath = useCallback((notification: ClickableNotification) => {
+    if (
+      notification.type === "application_approved" ||
+      notification.type === "application_declined"
+    ) {
+      return "/application-form";
+    }
+
+    const source = `${notification.title} ${notification.message}`.toLowerCase();
+    if (
+      source.includes("applications are now open") ||
+      source.includes("applications are now closed") ||
+      source.includes("accepting new submissions") ||
+      source.includes("application form")
+    ) {
+      return "/application-form";
+    }
+
+    return "/home";
+  }, []);
+
+  const handleNotificationClick = useCallback(
+    async (notification: ClickableNotification) => {
+      const token = localStorage.getItem("scholarcheck_accessToken") || undefined;
+      const currentUser = getStoredUser();
+
+      if (!notification.is_read && currentUser.id) {
+        try {
+          await markNotificationAsRead(notification.id, currentUser.id, token);
+          setNotifications((prev) =>
+            prev.map((item) =>
+              item.id === notification.id ? { ...item, is_read: true } : item
+            )
+          );
+        } catch (error) {
+          console.error("Failed to mark notification as read:", error);
+        }
+      }
+
+      setNotificationOpen(false);
+      setProfileOpen(false);
+      navigate(getNotificationTargetPath(notification));
+    },
+    [getNotificationTargetPath, navigate]
+  );
 
   useEffect(() => {
     setUser(getStoredUser());
@@ -440,6 +492,7 @@ export function Layout({ children }: LayoutProps) {
                 loading={notificationsLoading}
                 onMarkAllAsRead={handleMarkAllAsRead}
                 onClear={handleClearNotifications}
+                onNotificationClick={handleNotificationClick}
               />
             </div>
 

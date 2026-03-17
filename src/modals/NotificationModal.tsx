@@ -25,6 +25,7 @@ interface NotificationModalProps {
   loading?: boolean;
   onMarkAllAsRead?: () => void;
   onClear?: () => void;
+  onNotificationClick?: (notification: NotificationItem) => void;
 }
 
 function formatTimeAgo(dateString: string) {
@@ -79,6 +80,7 @@ export function NotificationModal({
   loading = false,
   onMarkAllAsRead,
   onClear,
+  onNotificationClick,
 }: NotificationModalProps) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -155,7 +157,11 @@ export function NotificationModal({
                 key={note.id}
                 className={`transition ${note.is_read ? "bg-white" : "bg-green-50/40"}`}
               >
-                <div className="flex items-center gap-3 px-4 py-2.5">
+                <button
+                  type="button"
+                  onClick={() => onNotificationClick?.(note)}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-gray-50"
+                >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
                     {getNotificationIcon(note.type)}
                   </div>
@@ -189,7 +195,7 @@ export function NotificationModal({
                       {note.message}
                     </p>
                   </div>
-                </div>
+                </button>
               </li>
             ))}
           </ul>

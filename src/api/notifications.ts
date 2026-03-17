@@ -11,8 +11,8 @@ export interface NotificationDto {
 const API_BASE =
   (import.meta as any).env?.VITE_API_URL || "http://localhost:8000";
 
-export async function fetchNotifications(userId: number, token?: string): Promise<NotificationDto[]> {
-  const res = await fetch(`${API_BASE}/api/notifications?userId=${userId}`, {
+export async function fetchNotifications(_userId: number, token?: string): Promise<NotificationDto[]> {
+  const res = await fetch(`${API_BASE}/api/notifications`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -32,7 +32,7 @@ export async function fetchNotifications(userId: number, token?: string): Promis
 
 export async function markNotificationAsRead(
   id: number,
-  userId: number,
+  _userId: number,
   token?: string
 ) {
   const res = await fetch(`${API_BASE}/api/notifications/${id}/read`, {
@@ -42,7 +42,6 @@ export async function markNotificationAsRead(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     credentials: "include",
-    body: JSON.stringify({ userId }),
   });
 
   if (!res.ok) {
@@ -53,7 +52,7 @@ export async function markNotificationAsRead(
   return res.json();
 }
 
-export async function markAllNotificationsAsRead(userId: number, token?: string) {
+export async function markAllNotificationsAsRead(_userId: number, token?: string) {
   const res = await fetch(`${API_BASE}/api/notifications/read-all`, {
     method: "PATCH",
     headers: {
@@ -61,7 +60,6 @@ export async function markAllNotificationsAsRead(userId: number, token?: string)
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     credentials: "include",
-    body: JSON.stringify({ userId }),
   });
 
   if (!res.ok) {
