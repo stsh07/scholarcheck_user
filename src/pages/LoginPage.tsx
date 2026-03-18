@@ -1,9 +1,8 @@
 // src/pages/LoginPage.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 import Logo from "../img/PRIMARY.png";
-import EyeIcon from "../img/Eye.png";
-import EyeOffIcon from "../img/Hide.png";
 import LoginErrorModal from "../modals/LoginErrorModal";
 
 import LoginApproval from "../modals/LoginApproval";
@@ -347,159 +346,128 @@ export default function LoginPage() {
   const isSubmitDisabled = loading || lockRemainingMs > 0;
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-white flex flex-col">
-      <header className="w-full bg-white border-b border-gray-300">
-        <div className="flex items-center justify-between w-full max-w-6xl gap-3 px-4 py-4 mx-auto sm:px-6">
-          <div className="flex items-center min-w-0 gap-2">
-            <img
-              src={Logo}
-              alt="ScholarCheck Logo"
-              className="object-contain w-8 h-8 max-w-full sm:h-10 sm:w-10"
-            />
-            <span className="text-lg font-semibold text-gray-900 truncate sm:text-xl">
+    <div className="min-h-screen overflow-x-hidden bg-[#f6f6f6] flex flex-col">
+      <header className="w-full border-b border-gray-200 bg-white">
+        <div className="flex h-[66px] items-center px-4 sm:px-5">
+          <div className="flex min-w-0 items-center gap-2">
+            <img src={Logo} alt="ScholarCheck Logo" className="h-8 w-8 object-contain max-w-full" />
+            <span className="truncate text-[37px] leading-none font-medium text-[#111827] scale-[0.58] origin-left">
               ScholarCheck
             </span>
           </div>
         </div>
       </header>
 
-      <main className="relative flex-1">
-        {/* Background panel: desktop only (prevents weird half-bg on phones) */}
-        <div className="pointer-events-none absolute inset-0 hidden lg:block">
-          <div className="h-full w-1/2 bg-[#F0FDF4]" />
-        </div>
-
-        <div className="relative flex flex-col w-full max-w-6xl mx-auto lg:flex-row lg:min-h-[calc(100vh-80px)]">
-          {/* LEFT: welcome copy (desktop) */}
-          <div className="hidden lg:flex lg:w-1/2">
-            <div className="px-10 py-12 xl:px-12">
-              <div className="max-w-md">
-                <h2 className="mb-2 text-2xl font-bold text-black">Welcome Back to</h2>
-                <p className="text-4xl font-bold leading-tight text-green-800 break-words">
-                  ScholarCheck
-                </p>
-                <p className="mt-4 text-sm text-gray-700">
-                  Log in to access your account and continue your scholarship journey.
-                </p>
-              </div>
+      <main className="flex-1">
+        <div className="flex h-full flex-col lg:min-h-[calc(100vh-150px)] lg:flex-row">
+          <section className="bg-[#e9f3ed] px-6 py-12 sm:px-10 lg:w-1/2 lg:px-24 lg:py-24">
+            <div className="mx-auto w-full max-w-[470px] lg:pt-10">
+              <h2 className="text-[28px] font-semibold leading-[1.1] text-[#111827] sm:text-[34px]">
+                Welcome Back to
+              </h2>
+              <h1 className="mt-1 text-[34px] font-bold leading-[1.05] text-[#166534] sm:text-[42px]">
+                ScholarCheck
+              </h1>
+              <p className="mt-5 max-w-[390px] text-[14px] leading-5 text-[#111827]">
+                Log in to access your account and continue your scholarship journey.
+              </p>
             </div>
-          </div>
+          </section>
 
-          {/* RIGHT: form */}
-          <div className="flex items-start justify-center flex-1 w-full px-4 py-10 sm:px-6 sm:py-12 bg-white">
-            <div className="w-full max-w-md">
-              {/* Mobile-only welcome (so it doesn’t feel empty) */}
-              <div className="lg:hidden mb-6">
-                <h2 className="text-2xl font-bold text-black leading-tight">
-                  Welcome Back
-                </h2>
-                <p className="text-sm text-black/70 mt-1">
-                  Log in to continue your scholarship journey.
-                </p>
-              </div>
+          <section className="px-6 py-10 sm:px-10 lg:w-1/2 lg:px-14 lg:py-24">
+            <div className="mx-auto w-full max-w-[520px]">
+              <h2 className="text-[28px] font-semibold leading-[1.05] text-[#111827] sm:text-[34px]">
+                Log In
+              </h2>
+              <p className="mt-2 text-[15px] font-normal leading-5 text-[#111827]">
+                Please enter your credentials to access your account.
+              </p>
 
-              {/* Card container for better mobile spacing */}
-              <div className="rounded-2xl border border-black/5 shadow-sm px-4 sm:px-6 py-6 sm:py-8">
-                <h2 className="text-xl sm:text-[25px] font-bold text-black mb-2">
-                  Log In
-                </h2>
-                <p className="mb-5 sm:mb-6 text-sm font-normal text-black sm:text-base">
-                  Please enter your credentials to access your account.
-                </p>
+              <form noValidate onSubmit={handleSubmit} className="mt-12 flex flex-col gap-8">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="email" className="text-[16px] font-medium text-[#111827]">
+                    Email
+                  </label>
+                  <input
+                    id="email"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="h-11 w-full rounded-md border border-[#dcdcdc] bg-white px-3 text-[16px] text-[#111827] placeholder:text-[16px] placeholder:text-[#9ca3af] focus:outline-none focus:ring-2 focus:ring-[#0b6f2f]/20"
+                    required
+                  />
+                </div>
 
-                <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
-                  <div className="flex flex-col min-w-0 gap-1">
-                    <label htmlFor="email" className="text-sm font-medium text-black">
-                      Email
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="password" className="text-[16px] font-medium text-[#111827]">
+                      Password
                     </label>
+                    <Link to="/forgot-password" className="text-[16px] font-normal text-[#166534] hover:underline">
+                      Forgot your password?
+                    </Link>
+                  </div>
+
+                  <div className="relative">
                     <input
-                      id="email"
-                      type="text"
-                      inputMode="email"
-                      autoComplete="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      className="w-full max-w-full px-4 py-3 text-sm sm:text-base border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="h-11 w-full rounded-md border border-[#dcdcdc] bg-white px-3 pr-11 text-[16px] text-[#111827] placeholder:text-[16px] placeholder:text-[#9ca3af] focus:outline-none focus:ring-2 focus:ring-[#0b6f2f]/20"
                       required
                     />
+
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-1.5 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md hover:bg-black/5 active:bg-black/10"
+                      aria-label="Toggle password visibility"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5 text-black/60" aria-hidden="true" />
+                      ) : (
+                        <Eye className="w-5 h-5 text-black/60" aria-hidden="true" />
+                      )}
+                    </button>
                   </div>
+                </div>
 
-                  <div className="flex flex-col min-w-0 gap-1">
-                    {/* responsive: wrap nicely on small screens */}
-                    <div className="flex flex-col xs:flex-row xs:items-center xs:justify-between gap-2 mb-1">
-                      <label htmlFor="password" className="text-sm font-medium text-black">
-                        Password
-                      </label>
-                      <Link
-                        to="/forgot-password"
-                        className="text-sm text-green-800 hover:underline self-start xs:self-auto"
-                      >
-                        Forgot your password?
-                      </Link>
-                    </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitDisabled}
+                  className={`h-11 w-full rounded-md text-[13px] font-semibold text-white transition ${
+                    isSubmitDisabled
+                      ? "cursor-not-allowed bg-[#0b6f2f]/60"
+                      : "bg-[#006317] hover:bg-[#005312]"
+                  }`}
+                >
+                  {loading
+                    ? "Logging in..."
+                    : lockRemainingMs > 0
+                    ? `Try again in ${formatRemaining(lockRemainingMs)}`
+                    : "Log In"}
+                </button>
+              </form>
 
-                    <div className="relative">
-                      <input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        autoComplete="current-password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter your password"
-                        className="w-full max-w-full px-4 py-3 pr-12 text-sm sm:text-base border rounded-lg border-black/10 placeholder:text-black/50 focus:outline-none focus:ring-2 focus:ring-green-800 focus:border-transparent"
-                        required
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((prev) => !prev)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-md hover:bg-black/5 active:bg-black/10 focus:outline-none"
-                        aria-label="Toggle password visibility"
-                      >
-                        <img
-                          src={showPassword ? EyeOffIcon : EyeIcon}
-                          alt="Toggle password"
-                          className="object-contain w-5 h-5"
-                          draggable={false}
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitDisabled}
-                    className={`w-full rounded-xl py-3 font-semibold text-white text-sm sm:text-base transition-colors ${
-                      isSubmitDisabled
-                        ? "bg-green-800/60 cursor-not-allowed"
-                        : "bg-green-800 hover:bg-green-900"
-                    }`}
-                  >
-                    {loading
-                      ? "Logging in..."
-                      : lockRemainingMs > 0
-                      ? `Try again in ${formatRemaining(lockRemainingMs)}`
-                      : "Log In"}
-                  </button>
-                </form>
-
-                <p className="mt-6 text-sm sm:text-base text-center text-black">
-                  Don't have an account?{" "}
-                  <Link to="/signup" className="text-green-800 hover:underline">
-                    Sign Up
-                  </Link>
-                </p>
-              </div>
+              <p className="mt-8 text-[14px] text-center text-[#111827]">
+                Don’t have an account?{" "}
+                <Link to="/signup" className="text-[#166534] hover:underline">
+                  Sign Up
+                </Link>
+              </p>
             </div>
-          </div>
+          </section>
         </div>
       </main>
 
-      <footer className="flex items-center justify-center w-full h-20 text-center bg-white border-t border-gray-200">
-        <p className="px-4 text-xs text-black sm:text-sm">
-          © 2026 ScholarCheck. All rights reserved.
-        </p>
+      <footer className="w-full border-t border-gray-200 bg-[#f6f6f6] py-8 text-center">
+        <p className="text-[12px] text-[#111827]">&copy; 2026 ScholarCheck. All rights reserved.</p>
       </footer>
 
       <LoginApproval
